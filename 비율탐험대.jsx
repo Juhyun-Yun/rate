@@ -8,7 +8,7 @@ const CANVAS_H = 800;
 // ============ 선생님 설정 ============
 // Google Apps Script 배포 URL (code.gs 파일 안내 참고)
 // 비워두면 이름을 직접 입력하는 방식으로 작동하고, 시트 기록은 안 됩니다.
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLsocNLMZD6AuvBmtkzFFhvv5xm8DeNbskdN5PJpnB5Te-JsqBRl1U65kYL5Vci6rb/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-SHqASGZHOJ8lgm78jdqZxSHxxCiJtfUMGzuHpo2qgYCwyyq8TeaHR_3i3eEFM8tr/exec';
 
 // ============ THEME STYLES ============
 const themeStyles = `
