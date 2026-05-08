@@ -436,6 +436,70 @@ const Confetti = () => {
   );
 };
 
+// ============ STAGE OVERVIEW (각 단원 목차) ============
+const StageOverview = ({ stageNumber, stageBadge, stageTitle, stageGoal, accentClass, cards, visitedCards, onCardClick }) => {
+  const recommendedCard = cards.find(c => !visitedCards.has(c.id));
+  const recommendedId = recommendedCard ? recommendedCard.id : null;
+
+  return (
+    <div className="animate-fade-up h-full flex flex-col px-10 py-5 overflow-y-auto">
+      {/* 차시 정보 박스 */}
+      <div className={`bg-white rounded-2xl border-2 ${accentClass} p-3 mb-3 card-shadow flex items-center gap-3 flex-wrap`}>
+        <div className="bg-orange-100 px-4 py-1.5 rounded-full font-display text-orange-700 text-base">
+          {stageNumber}차시
+        </div>
+        <span className="font-display text-2xl text-amber-900">{stageBadge}</span>
+        <div className="flex-1 min-w-[280px] bg-emerald-50 border-2 border-emerald-200 rounded-xl px-4 py-2 flex items-center gap-2">
+          <span className="text-lg">🎯</span>
+          <span className="font-body text-emerald-900 text-base">
+            <b>오늘의 학습 목표</b> &nbsp;{stageGoal}
+          </span>
+        </div>
+      </div>
+
+      {/* 카드 목록 */}
+      <div className="flex-1 flex flex-col gap-2">
+        {cards.map(card => {
+          const visited = visitedCards.has(card.id);
+          const recommended = card.id === recommendedId;
+          return (
+            <button
+              key={card.id}
+              onClick={() => onCardClick(card)}
+              className={`w-full text-left rounded-2xl border-2 px-5 py-3 transition-all flex items-center justify-between card-shadow ${
+                recommended
+                  ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-300'
+                  : 'bg-white border-amber-200 hover:bg-amber-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg ${
+                  recommended ? 'bg-orange-500 text-white' : 'bg-amber-200 text-amber-900'
+                }`}>{card.id}</div>
+                <span className="text-2xl">{card.icon}</span>
+                <span className="font-display text-xl text-amber-900">{card.title}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {recommended && (
+                  <span className="bg-orange-400 text-white px-3 py-1 rounded-full font-display text-sm">✨ 추천</span>
+                )}
+                <span className={`px-3 py-1 rounded-full font-display text-sm ${
+                  visited ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-stone-100 text-stone-500 border border-stone-200'
+                }`}>{visited ? '완료' : '시작 전'}</span>
+                <ArrowRight size={22} className="text-orange-500 ml-1" />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-center font-body text-amber-700 text-sm mt-3">
+        📊 <b>학습 단계</b> — 순서대로 진행하거나, 원하는 단계를 직접 선택할 수 있어요!
+      </p>
+    </div>
+  );
+};
+
 // ============ HOME SCREEN ============
 const HomeScreen = ({ progress, rewards, studentName, onNavigate, onReset, onDownloadNote, onChangeName }) => {
   const stages = [
@@ -569,6 +633,24 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
   const [attempts, setAttempts] = useState(0);
   const [quizSize, setQuizSize] = useState(null);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [showOverview, setShowOverview] = useState(true);
+  const [visitedCards, setVisitedCards] = useState(new Set());
+
+  const overviewCards = [
+    { id: 1, icon: '📖', title: '문제 상황', step: 0 },
+    { id: 2, icon: '🔵', title: '개념 학습', step: 1 },
+    { id: 3, icon: '✨', title: '핵심 정리', step: 1 },
+    { id: 4, icon: '📝', title: '연습하기', step: 2 },
+    { id: 5, icon: '⚡', title: '빠른 연산 (퀴즈)', step: 3 },
+  ];
+
+  const handleCardClick = (card) => {
+    setVisitedCards(prev => new Set([...prev, card.id]));
+    setShowOverview(false);
+    setStep(card.step);
+  };
+
+  const goOverview = () => setShowOverview(true);
 
   const HINT_ORDER = '비를 쓸 때는 문제에서 먼저 말한 양이 ":" 앞에 와요. 문제를 다시 한 번 잘 읽어보세요!';
   const HINT_READ = '":" 기호는 "대"라고 읽어요. 두 숫자 사이에 "대"를 넣어 읽어보세요.';
@@ -989,17 +1071,32 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
       {showConfetti && <Confetti />}
       <TopBar
         onHome={onHome}
-        onBack={step > 0 && step < 4 ? () => setStep(step - 1) : null}
+        onBack={!showOverview ? goOverview : null}
         title="🌰 비의 숲"
-        progress={`${Math.min(step + 1, 4)}/4`}
+        progress={showOverview ? '목차' : `${Math.min(step + 1, 4)}/4`}
       />
       <div className="flex-1 overflow-hidden">
-        {step === 0 && renderIntro()}
-        {step === 1 && renderLesson()}
-        {step === 2 && renderPractice()}
-        {step === 3 && !quizSize && renderQuizSelect()}
-        {step === 3 && quizSize && renderQuiz()}
-        {step === 4 && renderDone()}
+        {showOverview ? (
+          <StageOverview
+            stageNumber="1"
+            stageBadge="🌰 비"
+            stageTitle="비의 숲"
+            stageGoal="두 양의 관계를 비로 나타내는 방법을 알아봐요"
+            accentClass="border-orange-400"
+            cards={overviewCards}
+            visitedCards={visitedCards}
+            onCardClick={handleCardClick}
+          />
+        ) : (
+          <>
+            {step === 0 && renderIntro()}
+            {step === 1 && renderLesson()}
+            {step === 2 && renderPractice()}
+            {step === 3 && !quizSize && renderQuizSelect()}
+            {step === 3 && quizSize && renderQuiz()}
+            {step === 4 && renderDone()}
+          </>
+        )}
       </div>
       {renderQuizModal()}
     </div>
@@ -1018,6 +1115,24 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
   const [attempts, setAttempts] = useState(0);
   const [quizSize, setQuizSize] = useState(null);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [showOverview, setShowOverview] = useState(true);
+  const [visitedCards, setVisitedCards] = useState(new Set());
+
+  const overviewCards = [
+    { id: 1, icon: '📖', title: '문제 상황', step: 0 },
+    { id: 2, icon: '🔵', title: '개념 학습', step: 1 },
+    { id: 3, icon: '✨', title: '핵심 정리', step: 1 },
+    { id: 4, icon: '📝', title: '연습하기', step: 2 },
+    { id: 5, icon: '⚡', title: '빠른 연산 (퀴즈)', step: 3 },
+  ];
+
+  const handleCardClick = (card) => {
+    setVisitedCards(prev => new Set([...prev, card.id]));
+    setShowOverview(false);
+    setStep(card.step);
+  };
+
+  const goOverview = () => setShowOverview(true);
 
   const ratioDecimal = Math.round((a / b) * 1000) / 1000;
 
@@ -1415,17 +1530,32 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
       {showConfetti && <Confetti />}
       <TopBar
         onHome={onHome}
-        onBack={step > 0 && step < 4 ? () => setStep(step - 1) : null}
+        onBack={!showOverview ? goOverview : null}
         title="📊 비율의 언덕"
-        progress={`${Math.min(step + 1, 4)}/4`}
+        progress={showOverview ? '목차' : `${Math.min(step + 1, 4)}/4`}
       />
       <div className="flex-1 overflow-hidden">
-        {step === 0 && renderIntro()}
-        {step === 1 && renderLesson()}
-        {step === 2 && renderPractice()}
-        {step === 3 && !quizSize && renderQuizSelect()}
-        {step === 3 && quizSize && renderQuiz()}
-        {step === 4 && renderDone()}
+        {showOverview ? (
+          <StageOverview
+            stageNumber="2"
+            stageBadge="📊 비율"
+            stageTitle="비율의 언덕"
+            stageGoal="비율의 의미를 알고 분수·소수로 나타내요"
+            accentClass="border-emerald-400"
+            cards={overviewCards}
+            visitedCards={visitedCards}
+            onCardClick={handleCardClick}
+          />
+        ) : (
+          <>
+            {step === 0 && renderIntro()}
+            {step === 1 && renderLesson()}
+            {step === 2 && renderPractice()}
+            {step === 3 && !quizSize && renderQuizSelect()}
+            {step === 3 && quizSize && renderQuiz()}
+            {step === 4 && renderDone()}
+          </>
+        )}
       </div>
       {renderQuizModal()}
     </div>
@@ -1570,6 +1700,24 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
   const [conceptReturn, setConceptReturn] = useState(false);
   const [showLevelGuide, setShowLevelGuide] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showOverview, setShowOverview] = useState(true);
+  const [visitedCards, setVisitedCards] = useState(new Set());
+
+  const overviewCards = [
+    { id: 1, icon: '📖', title: '문제 상황', step: 0 },
+    { id: 2, icon: '🔵', title: '개념 학습', step: 1 },
+    { id: 3, icon: '✨', title: '핵심 정리', step: 2 },
+    { id: 4, icon: '📝', title: '연습하기', step: 3 },
+    { id: 5, icon: '⚡', title: '빠른 연산 (퀴즈)', step: 7 },
+  ];
+
+  const handleCardClick = (card) => {
+    setVisitedCards(prev => new Set([...prev, card.id]));
+    setShowOverview(false);
+    setStep(card.step);
+  };
+
+  const goOverview = () => setShowOverview(true);
 
   const startQuiz = (size) => {
     const shuffled = [...quizPool].sort(() => Math.random() - 0.5).slice(0, size);
@@ -2181,21 +2329,36 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
       })()}
       <TopBar
         onHome={onHome}
-        onBack={step > 0 && step < 7 ? () => setStep(step - 1) : null}
+        onBack={!showOverview ? goOverview : null}
         title="💯 백분율 마을"
-        progress={`${Math.min(step + 1, 9)}/9`}
+        progress={showOverview ? '목차' : `${Math.min(step + 1, 9)}/9`}
       />
       <div className="flex-1 overflow-hidden">
-        {step === 0 && renderIntro()}
-        {step === 1 && renderLesson()}
-        {step === 2 && renderMethods()}
-        {step === 3 && renderDiscount()}
-        {step === 4 && renderTest()}
-        {step === 5 && renderRain()}
-        {step === 6 && renderBattery()}
-        {step === 7 && !quizSize && renderQuizSelect()}
-        {step === 7 && quizSize && renderQuiz()}
-        {step === 8 && renderDone()}
+        {showOverview ? (
+          <StageOverview
+            stageNumber="3"
+            stageBadge="💯 백분율"
+            stageTitle="백분율 마을"
+            stageGoal="백분율의 의미와 구하는 방법을 알아봐요"
+            accentClass="border-amber-400"
+            cards={overviewCards}
+            visitedCards={visitedCards}
+            onCardClick={handleCardClick}
+          />
+        ) : (
+          <>
+            {step === 0 && renderIntro()}
+            {step === 1 && renderLesson()}
+            {step === 2 && renderMethods()}
+            {step === 3 && renderDiscount()}
+            {step === 4 && renderTest()}
+            {step === 5 && renderRain()}
+            {step === 6 && renderBattery()}
+            {step === 7 && !quizSize && renderQuizSelect()}
+            {step === 7 && quizSize && renderQuiz()}
+            {step === 8 && renderDone()}
+          </>
+        )}
       </div>
     </div>
   );
