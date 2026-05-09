@@ -1,0 +1,3277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>비율 탐험대</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    html, body, #root { height: 100%; margin: 0; }
+    body { background: #2D1810; }
+    #root > div.fixed.inset-0 {
+      inset: auto !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: min(calc(100vw - 48px), calc((100vh - 48px) * 1.6)) !important;
+      height: min(calc(100vh - 48px), calc((100vw - 48px) / 1.6)) !important;
+      transform: translate(-50%, -50%) !important;
+      border-radius: 28px !important;
+      border: 4px solid #4A2C1F !important;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    var { useState, useEffect, useRef } = React;
+
+    var _IconBase = ({ children, size = 24, fill = 'none', stroke = 'currentColor', strokeWidth = 2, className = '', ...rest }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+           fill={fill} stroke={stroke} strokeWidth={strokeWidth}
+           strokeLinecap="round" strokeLinejoin="round" className={className} {...rest}>
+        {children}
+      </svg>
+    );
+    var ChevronLeft = (p) => <_IconBase {...p}><polyline points="15 18 9 12 15 6"/></_IconBase>;
+    var Home = (p) => <_IconBase {...p}>
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </_IconBase>;
+    var Star = (p) => <_IconBase {...p}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </_IconBase>;
+    var ArrowRight = (p) => <_IconBase {...p}>
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </_IconBase>;
+    var RefreshCw = (p) => <_IconBase {...p}>
+      <polyline points="23 4 23 10 17 10"/>
+      <polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </_IconBase>;
+    var Lock = (p) => <_IconBase {...p}>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </_IconBase>;
+
+
+// ============ CANVAS CONSTANTS ============
+const CANVAS_W = 1280;
+const CANVAS_H = 800;
+
+// ============ 선생님 설정 ============
+// Google Apps Script 배포 URL (code.gs 파일 안내 참고)
+// 비워두면 이름을 직접 입력하는 방식으로 작동하고, 시트 기록은 안 됩니다.
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-SHqASGZHOJ8lgm78jdqZxSHxxCiJtfUMGzuHpo2qgYCwyyq8TeaHR_3i3eEFM8tr/exec';
+
+// ============ THEME STYLES ============
+const themeStyles = `
+@import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+.font-display { font-family: 'Jua', sans-serif; letter-spacing: -0.01em; font-size: 1.42em; }
+.font-body { font-family: 'Jua', sans-serif; font-size: 1.42em; }
+
+.app-bg {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(244, 185, 66, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(217, 119, 87, 0.14) 0%, transparent 45%),
+    #FFF6E5;
+}
+
+.outer-bg {
+  background:
+    radial-gradient(circle at 20% 30%, #F4C988 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, #E8A87C 0%, transparent 50%),
+    #FDE8B5;
+}
+
+.card-shadow { box-shadow: 0 4px 0 rgba(74, 44, 31, 0.15), 0 8px 24px rgba(74, 44, 31, 0.08); }
+.btn-shadow { box-shadow: 0 4px 0 rgba(74, 44, 31, 0.25); }
+.btn-shadow:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(74, 44, 31, 0.25); }
+
+@keyframes bounce-soft { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.animate-bounce-soft { animation: bounce-soft 2.4s ease-in-out infinite; }
+
+@keyframes pop-in { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+.animate-pop-in { animation: pop-in 0.45s cubic-bezier(.34,1.56,.64,1); }
+
+@keyframes wiggle { 0%,100% { transform: rotate(0deg); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+.animate-wiggle { animation: wiggle 1.2s ease-in-out infinite; }
+
+@keyframes fade-up { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
+.animate-fade-up { animation: fade-up 0.5s ease-out both; }
+
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.animate-shake { animation: shake 0.4s; }
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-20%) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110%) rotate(720deg); opacity: 0; }
+}
+
+@keyframes float-slow { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-12px) rotate(3deg); } }
+.animate-float { animation: float-slow 4s ease-in-out infinite; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 12px; border-radius: 9999px; background: #FCE8C8;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #F4B942; border: 4px solid white;
+  box-shadow: 0 2px 6px rgba(74,44,31,0.3); cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #F4B942; border: 4px solid white;
+  box-shadow: 0 2px 6px rgba(74,44,31,0.3); cursor: pointer;
+}
+`;
+
+// ============ SCALE HOOK ============
+function useScale() {
+  const [state, setState] = useState({ scale: 1, needsRotate: false });
+  useEffect(() => {
+    const update = () => {
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      // Phone-sized device in portrait → ask to rotate
+      const needsRotate = W < H && W < 640;
+      const sw = (W - 48) / CANVAS_W;
+      const sh = (H - 48) / CANVAS_H;
+      setState({ scale: Math.min(sw, sh), needsRotate });
+    };
+    update();
+    window.addEventListener('resize', update);
+    const orientationHandler = () => setTimeout(update, 120);
+    window.addEventListener('orientationchange', orientationHandler);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', orientationHandler);
+    };
+  }, []);
+  return state;
+}
+
+// ============ SVG ILLUSTRATIONS ============
+const Squirrel = ({ size = 110, mood = 'happy' }) => (
+  <svg viewBox="0 0 200 200" width={size} height={size} xmlns="http://www.w3.org/2000/svg" className="drop-shadow-md">
+    <path d="M 55 110 Q 10 95, 18 50 Q 28 12, 78 22 Q 70 50, 75 85 Z"
+      fill="#B85C3D" stroke="#8B4513" strokeWidth="2.5" strokeLinejoin="round" />
+    <path d="M 55 110 Q 25 95, 32 60 Q 42 28, 72 35"
+      fill="none" stroke="#8B4513" strokeWidth="1.5" opacity="0.4" />
+    <ellipse cx="110" cy="135" rx="42" ry="50" fill="#D97757" stroke="#8B4513" strokeWidth="2.5" />
+    <ellipse cx="110" cy="148" rx="22" ry="32" fill="#FFE0B8" />
+    <circle cx="110" cy="78" r="38" fill="#D97757" stroke="#8B4513" strokeWidth="2.5" />
+    <circle cx="82" cy="88" r="7" fill="#F4A582" opacity="0.7" />
+    <circle cx="138" cy="88" r="7" fill="#F4A582" opacity="0.7" />
+    <path d="M 82 50 L 76 28 L 96 44 Z" fill="#D97757" stroke="#8B4513" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M 138 50 L 144 28 L 124 44 Z" fill="#D97757" stroke="#8B4513" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M 84 47 L 82 35 L 91 43 Z" fill="#FFB088" />
+    <path d="M 136 47 L 138 35 L 129 43 Z" fill="#FFB088" />
+    {mood === 'happy' && (<>
+      <path d="M 92 76 Q 96 72, 100 76" fill="none" stroke="#2D1810" strokeWidth="3" strokeLinecap="round" />
+      <path d="M 120 76 Q 124 72, 128 76" fill="none" stroke="#2D1810" strokeWidth="3" strokeLinecap="round" />
+    </>)}
+    {mood === 'normal' && (<>
+      <circle cx="96" cy="76" r="4" fill="#2D1810" />
+      <circle cx="124" cy="76" r="4" fill="#2D1810" />
+      <circle cx="97" cy="74" r="1.5" fill="white" />
+      <circle cx="125" cy="74" r="1.5" fill="white" />
+    </>)}
+    {mood === 'thinking' && (<>
+      <circle cx="96" cy="76" r="4" fill="#2D1810" />
+      <circle cx="124" cy="76" r="4" fill="#2D1810" />
+    </>)}
+    <ellipse cx="110" cy="92" rx="3.5" ry="2.5" fill="#2D1810" />
+    <path d="M 110 95 Q 105 100, 100 97" fill="none" stroke="#2D1810" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M 110 95 Q 115 100, 120 97" fill="none" stroke="#2D1810" strokeWidth="1.8" strokeLinecap="round" />
+    <ellipse cx="92" cy="160" rx="11" ry="14" fill="#B85C3D" stroke="#8B4513" strokeWidth="2" />
+    <ellipse cx="128" cy="160" rx="11" ry="14" fill="#B85C3D" stroke="#8B4513" strokeWidth="2" />
+    <ellipse cx="110" cy="168" rx="11" ry="13" fill="#C8743A" stroke="#6B4423" strokeWidth="1.5" />
+    <ellipse cx="110" cy="160" rx="12" ry="6" fill="#6B4423" />
+    <line x1="110" y1="153" x2="110" y2="148" stroke="#6B4423" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
+const Acorn = ({ size = 48, animated = false }) => (
+  <svg viewBox="0 0 60 70" width={size} height={size} className={animated ? 'animate-float' : ''}>
+    <ellipse cx="30" cy="42" rx="18" ry="22" fill="#C8743A" stroke="#6B4423" strokeWidth="2" />
+    <path d="M 14 30 Q 30 25, 46 30 Q 47 22, 44 18 Q 30 14, 16 18 Q 13 22, 14 30 Z"
+      fill="#6B4423" stroke="#4A2C1F" strokeWidth="2" strokeLinejoin="round" />
+    <line x1="30" y1="14" x2="30" y2="8" stroke="#4A2C1F" strokeWidth="2.5" strokeLinecap="round" />
+    <circle cx="22" cy="22" r="1.5" fill="#4A2C1F" opacity="0.6" />
+    <circle cx="30" cy="20" r="1.5" fill="#4A2C1F" opacity="0.6" />
+    <circle cx="38" cy="22" r="1.5" fill="#4A2C1F" opacity="0.6" />
+    <ellipse cx="24" cy="38" rx="3" ry="6" fill="#FFB088" opacity="0.5" />
+  </svg>
+);
+
+const Walnut = ({ size = 48, animated = false }) => (
+  <svg viewBox="0 0 60 60" width={size} height={size} className={animated ? 'animate-float' : ''}>
+    <ellipse cx="30" cy="32" rx="24" ry="25" fill="#A0623E" stroke="#5C2C0F" strokeWidth="2" />
+    <path d="M 30 8 L 30 56" stroke="#5C2C0F" strokeWidth="2" strokeLinecap="round" />
+    <path d="M 12 18 Q 22 28, 18 42" stroke="#5C2C0F" strokeWidth="1.5" fill="none" opacity="0.7" />
+    <path d="M 48 18 Q 38 28, 42 42" stroke="#5C2C0F" strokeWidth="1.5" fill="none" opacity="0.7" />
+    <path d="M 8 28 Q 30 32, 52 28" stroke="#5C2C0F" strokeWidth="1.5" fill="none" opacity="0.6" />
+    <path d="M 14 36 Q 30 40, 46 36" stroke="#5C2C0F" strokeWidth="1.2" fill="none" opacity="0.5" />
+    <ellipse cx="20" cy="22" rx="3" ry="5" fill="#D8956E" opacity="0.5" />
+  </svg>
+);
+
+const Leaf = ({ size = 40, color = '#D97757', rotation = 0 }) => (
+  <svg viewBox="0 0 50 50" width={size} height={size} style={{ transform: `rotate(${rotation}deg)` }}>
+    <path d="M 25 5 Q 45 15, 40 35 Q 30 48, 15 40 Q 5 25, 25 5 Z"
+      fill={color} stroke="#5C2C0F" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="M 25 8 L 25 42" stroke="#5C2C0F" strokeWidth="1" opacity="0.6" />
+    <path d="M 25 18 L 18 22 M 25 25 L 17 28 M 25 32 L 19 34" stroke="#5C2C0F" strokeWidth="1" opacity="0.5" />
+  </svg>
+);
+
+const Fraction = ({ num, den, color = '#C2410C', size = '3.5rem', barColor = null }) => (
+  <span className="inline-flex flex-col items-center align-middle mx-1">
+    <span className="font-display leading-none" style={{ color, fontSize: size }}>{num}</span>
+    <span style={{ borderBottom: `4px solid ${barColor || color}`, width: '2.2em', marginTop: '0.15em', marginBottom: '0.15em' }}></span>
+    <span className="font-display leading-none" style={{ color, fontSize: size }}>{den}</span>
+  </span>
+);
+
+const Plate = ({ accent = '#A0623E', innerColor = '#FFF8E7', rimColor = '#F5E6D3' }) => (
+  <svg viewBox="0 0 200 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full">
+    {/* shadow */}
+    <ellipse cx="100" cy="96" rx="78" ry="3" fill="#000" opacity="0.15" />
+    {/* basket body - low trapezoid */}
+    <path d="M 18 30 L 28 90 Q 28 94 32 94 L 168 94 Q 172 94 172 90 L 182 30 Z"
+      fill={innerColor} stroke={accent} strokeWidth="3" strokeLinejoin="round" />
+    {/* weave horizontal lines */}
+    <line x1="22" y1="50" x2="178" y2="50" stroke={accent} strokeWidth="1.2" opacity="0.35" />
+    <line x1="25" y1="70" x2="175" y2="70" stroke={accent} strokeWidth="1.2" opacity="0.3" />
+    {/* basket opening (rim) */}
+    <ellipse cx="100" cy="30" rx="82" ry="7" fill={rimColor} stroke={accent} strokeWidth="2.5" />
+    <ellipse cx="100" cy="30" rx="76" ry="4" fill="#FFFFFF" opacity="0.5" />
+  </svg>
+);
+
+// ============ UI COMPONENTS ============
+const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '' }) => {
+  const variants = {
+    primary: 'bg-orange-500 hover:bg-orange-600 text-white border-orange-700',
+    secondary: 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-700',
+    soft: 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300',
+    ghost: 'bg-white hover:bg-amber-50 text-amber-900 border-amber-200',
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`font-display text-2xl px-8 py-4 rounded-2xl border-b-4 transition-all btn-shadow disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Card = ({ children, className = '' }) => (
+  <div className={`bg-white rounded-3xl card-shadow border-2 border-amber-100 p-6 ${className}`}>
+    {children}
+  </div>
+);
+
+const StarRow = ({ count, total = 3, size = 24 }) => (
+  <div className="flex gap-1">
+    {[...Array(total)].map((_, i) => (
+      <Star key={i} size={size}
+        fill={i < count ? '#F4B942' : 'none'}
+        stroke={i < count ? '#D97706' : '#D1B886'}
+        strokeWidth={2.5}
+      />
+    ))}
+  </div>
+);
+
+const TopBar = ({ onHome, onBack, title, progress, rightSlot }) => (
+  <div className="flex items-center justify-between gap-2 px-6 py-3 bg-white/90 backdrop-blur-sm rounded-b-3xl border-b-2 border-amber-200">
+    <div className="flex gap-2 w-32">
+      {onBack && (
+        <button onClick={onBack} className="p-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 transition-colors">
+          <ChevronLeft size={24} />
+        </button>
+      )}
+      {onHome && (
+        <button onClick={onHome} className="p-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 transition-colors">
+          <Home size={24} />
+        </button>
+      )}
+    </div>
+    <div className="font-display text-amber-900 text-xl">{title}</div>
+    <div className="w-32 text-right flex items-center justify-end gap-2">
+      {rightSlot}
+      {progress !== undefined && (
+        <div className="font-display text-base text-amber-700 bg-amber-100 px-3 py-1 rounded-full">{progress}</div>
+      )}
+    </div>
+  </div>
+);
+
+const MILESTONES = [
+  { id: 'm5', count: 5, icon: '🌱', name: '새싹', desc: '5문제 정답!' },
+  { id: 'm10', count: 10, icon: '🌰', name: '도토리 모음', desc: '10문제 정답!' },
+  { id: 'm20', count: 20, icon: '🥜', name: '호두 모음', desc: '20문제 정답!' },
+  { id: 'm30', count: 30, icon: '🍂', name: '단풍잎', desc: '30문제 정답!' },
+  { id: 'm50', count: 50, icon: '⭐', name: '빛나는 별', desc: '50문제 정답!' },
+  { id: 'm100', count: 100, icon: '🌳', name: '큰 나무', desc: '100문제 정답!' },
+];
+
+const STAGE_BADGES = {
+  s1: { id: 'b_s1', icon: '🥉', name: '비의 숲 마스터', desc: '비의 숲을 통과했어요!' },
+  s2: { id: 'b_s2', icon: '🥈', name: '비율의 언덕 마스터', desc: '비율의 언덕을 정복했어요!' },
+  s3: { id: 'b_s3', icon: '🥇', name: '백분율 마을 마스터', desc: '백분율 마을까지 클리어!' },
+  all3: { id: 'b_all', icon: '🏆', name: '비율 탐험대 영웅', desc: '모든 단계를 마스터했어요!' },
+};
+
+const NameSelectModal = ({ onSelect }) => {
+  const [names, setNames] = useState([]);
+  const [selected, setSelected] = useState('');
+  const [manualName, setManualName] = useState('');
+  const [mode, setMode] = useState('loading');
+
+  useEffect(() => {
+    if (!SCRIPT_URL) {
+      setMode('manual');
+      return;
+    }
+    let cancelled = false;
+    fetch(SCRIPT_URL + '?action=list')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data && data.names && data.names.length > 0) {
+          setNames(data.names);
+          setMode('dropdown');
+        } else {
+          setMode('manual');
+        }
+      })
+      .catch(() => { if (!cancelled) setMode('manual'); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleStart = () => {
+    const name = mode === 'dropdown' ? selected : manualName.trim();
+    if (name) onSelect(name);
+  };
+
+  const ready = mode === 'dropdown' ? !!selected : !!manualName.trim();
+
+  return (
+    <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.7)' }}>
+      <div className="bg-white rounded-3xl p-10 max-w-2xl w-full card-shadow border-4 border-amber-400 text-center animate-pop-in">
+        <div className="animate-bounce-soft mb-2 inline-block"><Squirrel size={130} mood="happy" /></div>
+        <h3 className="font-display text-amber-900 mb-2" style={{ fontSize: '3.5rem' }}>안녕! 누구야?</h3>
+        <p className="font-body text-stone-700 text-2xl mb-5">이름을 골라주면 모험을 시작할게!</p>
+
+        {mode === 'loading' && (
+          <p className="font-body text-stone-500 text-2xl py-4">학생 명단 불러오는 중...</p>
+        )}
+
+        {mode === 'dropdown' && (
+          <select value={selected} onChange={(e) => setSelected(e.target.value)}
+            className="w-full p-4 text-3xl font-display border-4 rounded-2xl mb-5 border-amber-300 bg-amber-50 text-amber-900">
+            <option value="">— 이름 선택 —</option>
+            {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        )}
+
+        {mode === 'manual' && (
+          <>
+            <p className="font-body text-amber-700 text-base mb-2">
+              📋 선생님이 학생 명단 시트를 아직 연결하지 않았어요. 임시로 이름을 입력해 주세요.
+            </p>
+            <input type="text" placeholder="이름을 입력해줘" value={manualName} onChange={(e) => setManualName(e.target.value)}
+              className="w-full p-4 text-3xl font-display border-4 rounded-2xl mb-5 border-amber-300 bg-amber-50 text-amber-900 text-center" />
+          </>
+        )}
+
+        <Button onClick={handleStart} variant="primary" disabled={!ready}>시작하기 →</Button>
+      </div>
+    </div>
+  );
+};
+
+const RewardModal = ({ reward, onClose, queueRemaining }) => (
+  <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-3xl p-10 max-w-2xl w-full card-shadow border-4 border-amber-400 text-center animate-pop-in">
+      <p className="font-display text-amber-900 mb-2" style={{ fontSize: '2.5rem' }}>🎁 새로운 보상!</p>
+      <div className="my-4 animate-bounce-soft" style={{ fontSize: '8rem', lineHeight: 1 }}>{reward.icon}</div>
+      <p className="font-display text-amber-900 mb-2" style={{ fontSize: '3.5rem' }}>{reward.name}</p>
+      <p className="font-body text-stone-700 text-2xl mb-6">{reward.desc}</p>
+      <Button onClick={onClose} variant="primary">
+        {queueRemaining > 1 ? `다음 보상 (${queueRemaining - 1}개 남음) →` : '좋아!'}
+      </Button>
+    </div>
+  </div>
+);
+
+const Confetti = () => {
+  const colors = ['#F4B942', '#D97757', '#6B9E47', '#E8A87C', '#C38D9E'];
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
+      {[...Array(50)].map((_, i) => (
+        <div key={i}
+          className="absolute"
+          style={{
+            left: `${Math.random() * 100}%`,
+            top: `-20px`,
+            width: '12px',
+            height: '16px',
+            backgroundColor: colors[i % colors.length],
+            borderRadius: '2px',
+            animation: `confetti-fall ${2 + Math.random() * 2}s linear ${Math.random() * 0.8}s forwards`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ============ STAGE OVERVIEW (각 단원 목차) ============
+const StageOverview = ({ stageNumber, stageBadge, stageTitle, stageGoal, accentClass, cards, visitedCards, onCardClick }) => {
+  const recommendedCard = cards.find(c => !visitedCards.has(c.id));
+  const recommendedId = recommendedCard ? recommendedCard.id : null;
+
+  return (
+    <div className="animate-fade-up h-full flex flex-col px-10 py-5 overflow-y-auto">
+      {/* 차시 정보 박스 */}
+      <div className={`bg-white rounded-2xl border-2 ${accentClass} p-3 mb-3 card-shadow flex items-center gap-3 flex-wrap`}>
+        <div className="bg-orange-100 px-4 py-1.5 rounded-full font-display text-orange-700 text-base">
+          {stageNumber}차시
+        </div>
+        <span className="font-display text-2xl text-amber-900">{stageBadge}</span>
+        <div className="flex-1 min-w-[280px] bg-emerald-50 border-2 border-emerald-200 rounded-xl px-4 py-2 flex items-center gap-2">
+          <span className="text-lg">🎯</span>
+          <span className="font-body text-emerald-900 text-base">
+            <b>오늘의 학습 목표</b> &nbsp;{stageGoal}
+          </span>
+        </div>
+      </div>
+
+      {/* 카드 목록 */}
+      <div className="flex-1 flex flex-col gap-2">
+        {cards.map(card => {
+          const visited = visitedCards.has(card.id);
+          const recommended = card.id === recommendedId;
+          return (
+            <button
+              key={card.id}
+              onClick={() => onCardClick(card)}
+              className={`w-full text-left rounded-2xl border-2 px-5 py-3 transition-all flex items-center justify-between card-shadow ${
+                recommended
+                  ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-300'
+                  : 'bg-white border-amber-200 hover:bg-amber-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg ${
+                  recommended ? 'bg-orange-500 text-white' : 'bg-amber-200 text-amber-900'
+                }`}>{card.id}</div>
+                <span className="text-2xl">{card.icon}</span>
+                <span className="font-display text-xl text-amber-900">{card.title}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {recommended && (
+                  <span className="bg-orange-400 text-white px-3 py-1 rounded-full font-display text-sm">✨ 추천</span>
+                )}
+                <span className={`px-3 py-1 rounded-full font-display text-sm ${
+                  visited ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-stone-100 text-stone-500 border border-stone-200'
+                }`}>{visited ? '완료' : '시작 전'}</span>
+                <ArrowRight size={22} className="text-orange-500 ml-1" />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-center font-body text-amber-700 text-sm mt-3">
+        📊 <b>학습 단계</b> — 순서대로 진행하거나, 원하는 단계를 직접 선택할 수 있어요!
+      </p>
+    </div>
+  );
+};
+
+// ============ HOME SCREEN ============
+const HomeScreen = ({ progress, rewards, studentName, onNavigate, onReset, onDownloadNote, onChangeName }) => {
+  const stages = [
+    { id: 's1', name: '비의 숲', desc: '두 양을 비교해요', color: 'from-orange-300 to-orange-400', icon: '🌰', accent: 'border-orange-500' },
+    { id: 's2', name: '비율의 언덕', desc: '기준량과 비율을 알아요', color: 'from-emerald-300 to-emerald-400', icon: '📊', accent: 'border-emerald-500' },
+    { id: 's3', name: '백분율 마을', desc: '%로 표현해요', color: 'from-amber-300 to-amber-400', icon: '💯', accent: 'border-amber-500' },
+  ];
+  const totalStars = (progress.s1 || 0) + (progress.s2 || 0) + (progress.s3 || 0);
+  const r = rewards || { totalCorrect: 0, items: [], badges: [] };
+  const earnedItems = r.items || [];
+  const earnedBadges = r.badges || [];
+  const totalCorrect = r.totalCorrect || 0;
+  const allDone = (progress.s1 || 0) > 0 && (progress.s2 || 0) > 0 && (progress.s3 || 0) > 0;
+
+  return (
+    <div className="w-full h-full app-bg relative overflow-hidden">
+      {/* Decorative leaves */}
+      <div className="absolute top-6 right-12 opacity-30 animate-float"><Leaf size={70} color="#D97757" rotation={20} /></div>
+      <div className="absolute top-32 left-8 opacity-25 animate-float" style={{ animationDelay: '1s' }}><Leaf size={56} color="#6B9E47" rotation={-30} /></div>
+      <div className="absolute bottom-24 right-20 opacity-30 animate-float" style={{ animationDelay: '2s' }}><Leaf size={60} color="#F4B942" rotation={140} /></div>
+      <div className="absolute bottom-12 left-16 opacity-25 animate-float" style={{ animationDelay: '0.5s' }}><Leaf size={48} color="#D97757" rotation={-60} /></div>
+
+      <div className="h-full flex flex-col px-12 pt-10 pb-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 animate-fade-up">
+          <div className="flex items-center gap-4">
+            <div className="animate-bounce-soft"><Squirrel size={110} mood="happy" /></div>
+            <div>
+              <h1 className="font-display text-5xl text-amber-900 leading-tight">비율 탐험대</h1>
+              {studentName ? (
+                <p className="font-body text-stone-700 text-xl mt-1">
+                  안녕, <span className="font-display text-orange-700 text-2xl">{studentName}</span> 탐험가!{' '}
+                  <button onClick={onChangeName} className="text-stone-400 hover:text-stone-600 underline text-sm ml-1">(이름 바꾸기)</button>
+                </p>
+              ) : (
+                <p className="font-body text-stone-600 text-lg mt-1">다람쥐와 함께 비, 비율, 백분율을 배워봐요!</p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <div className="bg-white rounded-full px-4 py-2 card-shadow border-2 border-amber-200 flex items-center gap-2">
+                <Star size={22} fill="#F4B942" stroke="#D97706" strokeWidth={2.5} />
+                <span className="font-display text-amber-900 text-lg">별 {totalStars}/9</span>
+              </div>
+              <div className="bg-white rounded-full px-4 py-2 card-shadow border-2 border-emerald-200 flex items-center gap-2">
+                <span className="text-xl">✅</span>
+                <span className="font-display text-emerald-800 text-lg">정답 {totalCorrect}</span>
+              </div>
+              <div className="bg-white rounded-full px-4 py-2 card-shadow border-2 border-rose-200 flex items-center gap-2">
+                <span className="text-xl">🏅</span>
+                <span className="font-display text-rose-800 text-lg">메달 {earnedBadges.length}</span>
+              </div>
+            </div>
+            {(totalStars > 0 || totalCorrect > 0) && (
+              <button onClick={onReset}
+                className="font-body text-xs text-stone-500 hover:text-stone-700 underline">
+                <RefreshCw size={11} className="inline mr-1" /> 진도 초기화
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stage cards in horizontal journey */}
+        <div className="flex-1 flex items-center justify-center gap-5 px-2">
+          {stages.map((stage, idx) => {
+            const stars = progress[stage.id] || 0;
+            const prevStars = idx === 0 ? 1 : (progress[stages[idx - 1].id] || 0);
+            const locked = idx > 0 && prevStars === 0;
+            return (
+              <React.Fragment key={stage.id}>
+                <div className="animate-fade-up" style={{ animationDelay: `${0.15 + idx * 0.12}s` }}>
+                  <button
+                    onClick={() => !locked && onNavigate(stage.id)}
+                    disabled={locked}
+                    className={`block transition-transform ${locked ? 'opacity-60' : 'hover:scale-[1.04] active:scale-[0.98]'}`}
+                  >
+                    <div className={`relative bg-gradient-to-br ${stage.color} rounded-3xl card-shadow border-4 border-white overflow-hidden`}
+                      style={{ width: 280, height: 380 }}>
+                      <div className="absolute -top-3 -left-3 w-14 h-14 bg-white rounded-full border-4 border-amber-200 flex items-center justify-center font-display text-amber-900 text-2xl card-shadow">
+                        {idx + 1}
+                      </div>
+                      {locked && (
+                        <div className="absolute top-4 right-4 bg-white/80 rounded-full p-2">
+                          <Lock size={20} className="text-amber-800" />
+                        </div>
+                      )}
+                      <div className="h-full flex flex-col items-center justify-center p-6">
+                        <div className="text-7xl mb-4 drop-shadow-md">{stage.icon}</div>
+                        <h2 className="font-display text-3xl text-amber-900 mb-2 text-center">{stage.name}</h2>
+                        <p className="font-body text-amber-900/80 text-base text-center leading-snug px-2">{stage.desc}</p>
+                        <div className="mt-5"><StarRow count={stars} size={28} /></div>
+                        {!locked && (
+                          <div className="mt-5 bg-white rounded-full px-5 py-2 font-display text-amber-900 text-base">
+                            시작하기 →
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                {idx < stages.length - 1 && (
+                  <div className="animate-fade-up flex-shrink-0" style={{ animationDelay: `${0.2 + idx * 0.12}s` }}>
+                    <ArrowRight size={42} className="text-amber-500/60" strokeWidth={3} />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <div className="text-center mt-4 animate-fade-up" style={{ animationDelay: '0.6s' }}>
+          <p className="font-body text-stone-600 text-base">
+            💡 세 단계를 모두 끝내면 <span className="font-bold text-amber-800">백분율 마을의 마무리 화면</span>에서 보물과 탐험 노트를 받을 수 있어요!
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 점이 다각형 안에 있는지 판정 (lasso 묶기용)
+function isPointInPolygon(point, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    if (((yi > point.y) !== (yj > point.y)) &&
+        (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// ============ STAGE 1: 비 ============
+const Stage1 = ({ onHome, onComplete, onCorrect }) => {
+  const [step, setStep] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [acornCount, setAcornCount] = useState(0);
+  const [walnutCount, setWalnutCount] = useState(0);
+  const [qIndex, setQIndex] = useState(0);
+  const [qAnswers, setQAnswers] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [attempts, setAttempts] = useState(0);
+  const [quizSize, setQuizSize] = useState(null);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [showOverview, setShowOverview] = useState(true);
+  const [visitedCards, setVisitedCards] = useState(new Set());
+  const [introStep, setIntroStep] = useState(0);
+  const [lessonStep, setLessonStep] = useState(0);
+  const [paths, setPaths] = useState([]);
+  const [currentPath, setCurrentPath] = useState([]);
+  const drawAreaRef = useRef(null);
+  const [practiceStep, setPracticeStep] = useState(0);
+  const [practiceInputA, setPracticeInputA] = useState('');
+  const [practiceInputB, setPracticeInputB] = useState('');
+  const [practiceFeedback, setPracticeFeedback] = useState(null);
+  const [readsShown, setReadsShown] = useState({});
+
+  const acornPositions = [
+    { x: 70, y: 70 }, { x: 170, y: 70 }, { x: 270, y: 70 },
+    { x: 400, y: 70 }, { x: 500, y: 70 }, { x: 600, y: 70 },
+  ];
+
+  const overviewCards = [
+    { id: 1, icon: '📖', title: '문제 상황', step: 0 },
+    { id: 2, icon: '🔵', title: '개념 학습', step: 1 },
+    { id: 3, icon: '✨', title: '핵심 정리', step: 2 },
+    { id: 4, icon: '📝', title: '연습하기', step: 3 },
+    { id: 5, icon: '⚡', title: '빠른 연산 (퀴즈)', step: 4 },
+  ];
+
+  const handleCardClick = (card) => {
+    setVisitedCards(prev => new Set([...prev, card.id]));
+    setShowOverview(false);
+    setStep(card.step);
+    if (card.step === 0) { setPaths([]); setCurrentPath([]); setIntroStep(0); }
+    if (card.step === 1) setLessonStep(0);
+    if (card.step === 3) {
+      setPracticeStep(0);
+      setPracticeInputA('');
+      setPracticeInputB('');
+      setPracticeFeedback(null);
+      setReadsShown({});
+      setAcornCount(0);
+      setWalnutCount(0);
+    }
+  };
+
+  const acornGroupOf = (i) => {
+    const pos = acornPositions[i];
+    for (let g = 0; g < paths.length; g++) {
+      const closed = [...paths[g], paths[g][0]];
+      if (isPointInPolygon(pos, closed)) return g + 1;
+    }
+    return 0;
+  };
+
+  const getDrawPos = (e) => {
+    if (!drawAreaRef.current) return null;
+    const rect = drawAreaRef.current.getBoundingClientRect();
+    const cx = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const cy = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const scaleX = 700 / rect.width;
+    const scaleY = 140 / rect.height;
+    return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
+  };
+
+  const handleDrawDown = (e) => {
+    if (paths.length >= 2) return;
+    const pos = getDrawPos(e);
+    if (!pos) return;
+    setCurrentPath([pos]);
+  };
+
+  const handleDrawMove = (e) => {
+    if (currentPath.length === 0) return;
+    const pos = getDrawPos(e);
+    if (!pos) return;
+    setCurrentPath(prev => [...prev, pos]);
+  };
+
+  const handleDrawUp = () => {
+    if (currentPath.length > 5) {
+      setPaths(prev => [...prev, currentPath]);
+    }
+    setCurrentPath([]);
+  };
+
+  const goOverview = () => setShowOverview(true);
+
+  const HINT_ORDER = '비를 쓸 때는 문제에서 먼저 말한 양이 ":" 앞에 와요. 문제를 다시 한 번 잘 읽어보세요!';
+  const HINT_READ = '":" 기호는 "대"라고 읽어요. 두 숫자 사이에 "대"를 넣어 읽어보세요.';
+  const HINT_WRITE = '"대" 자리에 ":" 기호를 넣으면 돼요. 숫자의 순서는 그대로 두세요!';
+  const HINT_SAME = '두 양이 같을 때도 똑같이 ":" 기호를 사용해요. 합하거나 빼는 게 아니에요!';
+
+  const quizPool = [
+    { q: '도토리 7개와 호두 4개가 있어요. 도토리 수와 호두 수의 비를 어떻게 쓸까요?', visual: { a: 7, w: 4 }, options: ['7 : 4', '4 : 7', '11', '7 + 4'], answer: 0, explanation: HINT_ORDER },
+    { q: '도토리 3개와 호두 5개가 있어요. 호두 수와 도토리 수의 비를 어떻게 쓸까요?', visual: { a: 3, w: 5 }, options: ['3 : 5', '5 : 3', '8', '5 + 3'], answer: 1, explanation: HINT_ORDER },
+    { q: '"5 : 8" 을 어떻게 읽을까요?', options: ['오 더하기 팔', '오 빼기 팔', '오 대 팔', '오 곱하기 팔'], answer: 2, explanation: HINT_READ },
+    { q: '"3 대 7"을 기호로 쓰면?', options: ['3 + 7', '3 : 7', '3 - 7', '3 × 7'], answer: 1, explanation: HINT_WRITE },
+    { q: '도토리 6개와 호두 3개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 6, w: 3 }, options: ['3 : 6', '6 : 3', '9', '6 - 3'], answer: 1, explanation: HINT_ORDER },
+    { q: '도토리 2개와 호두 9개가 있어요. 호두 수와 도토리 수의 비는?', visual: { a: 2, w: 9 }, options: ['2 : 9', '9 : 2', '11', '9 + 2'], answer: 1, explanation: HINT_ORDER },
+    { q: '"8 대 3"을 기호로 쓰면?', options: ['8 : 3', '3 : 8', '8 - 3', '8 × 3'], answer: 0, explanation: HINT_WRITE },
+    { q: '도토리 9개와 호두 1개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 9, w: 1 }, options: ['1 : 9', '9 : 1', '10', '9 - 1'], answer: 1, explanation: HINT_ORDER },
+    { q: '"2 : 7"을 어떻게 읽을까요?', options: ['이 곱하기 칠', '이 빼기 칠', '이 대 칠', '이 더하기 칠'], answer: 2, explanation: HINT_READ },
+    { q: '도토리 3개와 호두 4개가 있어요. 호두 수와 도토리 수의 비는?', visual: { a: 3, w: 4 }, options: ['3 : 4', '4 : 3', '7', '4 - 3'], answer: 1, explanation: HINT_ORDER },
+    { q: '도토리 5개와 호두 5개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 5, w: 5 }, options: ['5 : 5', '5 + 5', '10', '5 - 5'], answer: 0, explanation: HINT_SAME },
+    { q: '도토리 7개와 호두 2개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 7, w: 2 }, options: ['2 : 7', '7 : 2', '9', '7 - 2'], answer: 1, explanation: HINT_ORDER },
+    { q: '도토리 4개와 호두 8개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 4, w: 8 }, options: ['8 : 4', '4 : 8', '12', '4 + 8'], answer: 1, explanation: HINT_ORDER },
+    { q: '"9 대 4"를 기호로 쓰면?', options: ['4 : 9', '9 : 4', '9 + 4', '9 - 4'], answer: 1, explanation: HINT_WRITE },
+    { q: '도토리 6개와 호두 7개가 있어요. 호두 수와 도토리 수의 비는?', visual: { a: 6, w: 7 }, options: ['6 : 7', '7 : 6', '13', '7 - 6'], answer: 1, explanation: HINT_ORDER },
+    { q: '도토리 8개와 호두 3개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 8, w: 3 }, options: ['3 : 8', '8 : 3', '11', '8 - 3'], answer: 1, explanation: HINT_ORDER },
+    { q: '"6 : 9"를 어떻게 읽을까요?', options: ['육 더하기 구', '육 대 구', '육 빼기 구', '육 곱하기 구'], answer: 1, explanation: HINT_READ },
+    { q: '도토리 2개와 호두 5개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 2, w: 5 }, options: ['5 : 2', '2 : 5', '7', '2 + 5'], answer: 1, explanation: HINT_ORDER },
+    { q: '"4 대 1"을 기호로 쓰면?', options: ['1 : 4', '4 : 1', '4 + 1', '4 - 1'], answer: 1, explanation: HINT_WRITE },
+    { q: '"7 : 3"을 어떻게 읽을까요?', options: ['칠 빼기 삼', '칠 대 삼', '칠 더하기 삼', '칠 곱하기 삼'], answer: 1, explanation: HINT_READ },
+  ];
+
+  const score = qAnswers.filter(Boolean).length;
+  const totalQ = quizSize || 3;
+  const ratio = score / totalQ;
+  const stars = ratio >= 0.95 ? 3 : ratio >= 0.6 ? 2 : ratio > 0 ? 1 : 0;
+
+  const renderIntro = () => {
+    if (introStep === 0) {
+      return (
+        <div className="animate-fade-up h-full flex items-center justify-center px-10 py-5 gap-6">
+          <div className="animate-bounce-soft flex-shrink-0">
+            <Squirrel size={220} mood="happy" />
+          </div>
+          <Card className="flex-1 max-w-4xl !p-8">
+            <h2 className="font-display text-amber-900 mb-4" style={{ fontSize: '2.9rem' }}>다람쥐의 가을 모음 🌰🥜</h2>
+            <p className="font-body text-stone-700 leading-relaxed" style={{ fontSize: '1.6rem', lineHeight: '2.6rem' }}>
+              가을이 깊어진 어느 날,<br/>
+              다람쥐가 신나게 <b className="text-orange-600">도토리 6개</b>와 <b className="text-amber-700">호두 3개</b>를 모았어요.
+            </p>
+            <div className="bg-amber-50 rounded-2xl p-6 mt-5 border-2 border-amber-200">
+              <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.7rem', lineHeight: '2.8rem' }}>
+                🤔 도토리를 좋아하는 다람쥐는<br/>
+                <b>호두보다 도토리가 몇 배 더 많은지</b> 궁금했어요!<br/>
+                도토리와 호두를 어떻게 비교할 수 있을까요?
+              </p>
+            </div>
+            <div className="text-right mt-6">
+              <Button onClick={() => setIntroStep(1)}>비교해 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
+    const allGrouped = acornPositions.every((_, i) => acornGroupOf(i) > 0);
+    const groupColors = ['#f97316', '#f43f5e']; // orange, rose
+    const groupFills = ['rgba(249, 115, 22, 0.15)', 'rgba(244, 63, 94, 0.15)'];
+    return (
+      <div className="animate-fade-up h-full flex flex-col items-center justify-center px-8 py-3 gap-3">
+        <div className="text-center">
+          <h2 className="font-display text-amber-900 mb-1" style={{ fontSize: '2.7rem' }}>두 양을 비교해 봐요! 🤔</h2>
+          <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>도토리는 호두보다 <b className="text-orange-700">몇 배</b> 더 많을까요?</p>
+        </div>
+
+        <Card className="w-full max-w-6xl !p-6">
+          <p className="font-body text-stone-700 text-center mb-4" style={{ fontSize: '1.4rem', lineHeight: '2.1rem' }}>
+            호두 <b className="text-amber-700">3개</b>를 <b className="text-emerald-700">한 묶음(기준)</b>으로 정했어요.<br/>
+            도토리도 <b>3개씩</b> 마우스로 <b className="text-orange-700">동그라미를 그려서</b> 묶어 볼까요?
+          </p>
+
+          {/* 호두 한 묶음 (기준) */}
+          <div className="flex items-center gap-3 mb-3 justify-center">
+            <span className="font-display text-amber-800 w-16 text-right" style={{ fontSize: '1.4rem' }}>호두</span>
+            <div className="bg-amber-100 rounded-xl p-2 border-4 border-dashed border-amber-500">
+              <div className="flex gap-1.5">
+                {[...Array(3)].map((_, i) => <Walnut key={i} size={44} />)}
+              </div>
+            </div>
+            <span className="font-display text-amber-800" style={{ fontSize: '1.15rem' }}>← 한 묶음 (기준)</span>
+          </div>
+
+          {/* 도토리: 드래그로 묶기 */}
+          <div className="flex items-center gap-3 justify-center mb-2">
+            <span className="font-display text-orange-700 w-16 text-right" style={{ fontSize: '1.4rem' }}>도토리</span>
+            <div
+              ref={drawAreaRef}
+              className="relative bg-amber-50 rounded-xl border-2 border-amber-200 overflow-hidden"
+              style={{ width: '700px', height: '140px', cursor: paths.length < 2 ? 'crosshair' : 'default', touchAction: 'none' }}
+              onMouseDown={handleDrawDown}
+              onMouseMove={handleDrawMove}
+              onMouseUp={handleDrawUp}
+              onMouseLeave={handleDrawUp}
+              onTouchStart={(e) => { e.preventDefault(); handleDrawDown(e); }}
+              onTouchMove={(e) => { e.preventDefault(); handleDrawMove(e); }}
+              onTouchEnd={handleDrawUp}
+            >
+              <svg viewBox="0 0 700 140" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+                {/* 완성된 묶음들 */}
+                {paths.map((p, gi) => (
+                  <polygon key={gi} points={p.map(pt => `${pt.x},${pt.y}`).join(' ')}
+                    fill={groupFills[gi]} stroke={groupColors[gi]} strokeWidth="3"
+                    strokeDasharray="6 4" strokeLinejoin="round" />
+                ))}
+                {/* 그리는 중인 path */}
+                {currentPath.length > 1 && (
+                  <polyline points={currentPath.map(pt => `${pt.x},${pt.y}`).join(' ')}
+                    fill="none" stroke="#fbbf24" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                )}
+              </svg>
+              {/* 도토리들 */}
+              {acornPositions.map((pos, i) => (
+                <div key={i} className="absolute pointer-events-none"
+                  style={{ left: `${(pos.x / 700) * 100}%`, top: `${(pos.y / 140) * 100}%`, transform: 'translate(-50%, -50%)' }}>
+                  <Acorn size={48} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {!allGrouped ? (
+            <p className="font-body text-stone-500 text-center" style={{ fontSize: '1.2rem' }}>
+              {paths.length === 0 && '👆 도토리 3개 주위에 동그라미를 그려 보세요'}
+              {paths.length === 1 && '👍 한 묶음 만듦! 나머지 도토리도 동그라미로 묶어 봐요'}
+              {paths.length === 2 && '⚠️ 묶음이 정확하지 않아요. 다시 그려 봐요'}
+            </p>
+          ) : (
+            <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-300 text-center animate-pop-in mt-3">
+              <p className="font-body text-stone-700 mb-1" style={{ fontSize: '1.4rem' }}>
+                도토리는 호두 묶음으로 <b className="text-orange-700">2개 묶음</b>!
+              </p>
+              <p className="font-display text-emerald-800" style={{ fontSize: '1.9rem' }}>
+                ⇒ 도토리는 호두의 <b className="text-orange-700" style={{ fontSize: '2.6rem' }}>2배</b>!
+              </p>
+            </div>
+          )}
+
+          {paths.length > 0 && (
+            <div className="text-center mt-3">
+              <button onClick={() => { setPaths([]); setCurrentPath([]); }} className="text-stone-500 hover:text-stone-700 underline" style={{ fontSize: '1rem' }}>↩ 다시 묶기</button>
+            </div>
+          )}
+        </Card>
+
+        <div className="flex items-center justify-center gap-5">
+          <Squirrel size={100} mood={allGrouped ? 'happy' : 'thinking'} />
+          <div>
+            {allGrouped ? (
+              <>
+                <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.3rem' }}>이 비교를 <b>간단한 기호</b>로 나타낼 수 있어요!</p>
+                <div className="text-right">
+                  <Button onClick={() => setStep(1)}>비로 표현하기 <ArrowRight size={22} className="inline ml-1" /></Button>
+                </div>
+              </>
+            ) : (
+              <p className="font-body text-stone-600" style={{ fontSize: '1.3rem' }}>👈 위에서 도토리를 마우스로 묶어 봐요!</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLesson = () => {
+    if (lessonStep === 0) {
+      return (
+        <div className="animate-fade-up h-full flex flex-col items-center justify-center px-8 py-3 gap-4">
+          <div className="text-center">
+            <h2 className="font-display text-amber-900 mb-1" style={{ fontSize: '2.7rem' }}>'비'를 알아보자! 📖</h2>
+            <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>두 양을 비교하는 간단한 방법</p>
+          </div>
+
+          <Card className="w-full max-w-6xl !p-6">
+            <div className="grid grid-cols-5 gap-5">
+              {/* 좌측: 비의 뜻 (2/5) */}
+              <div className="col-span-2 bg-amber-50 rounded-xl p-6 border-2 border-amber-300 flex flex-col justify-center">
+                <p className="font-display text-amber-900 mb-5 text-center" style={{ fontSize: '2.2rem' }}>📖 비의 뜻</p>
+                <p className="font-body text-stone-800 text-center" style={{ fontSize: '1.55rem', lineHeight: '2.5rem' }}>
+                  한 양을 <b className="text-emerald-700">기준</b>으로<br/>
+                  다른 양이 <b className="text-orange-700">몇 배</b>가 되는지<br/>
+                  비교하기 위해<br/>
+                  기호 <span className="font-display text-orange-700 mx-1" style={{ fontSize: '2.4rem' }}>:</span>를 사용하여<br/>
+                  나타낸 것
+                </p>
+              </div>
+
+              {/* 우측: 그림 + 설명 (3/5) */}
+              <div className="col-span-3 bg-emerald-50 rounded-xl p-5 border-2 border-emerald-300 flex flex-col gap-3">
+                {/* 호두 한 묶음 */}
+                <div className="flex items-center gap-2 justify-center">
+                  <span className="font-display text-amber-800 w-20 text-right whitespace-nowrap" style={{ fontSize: '1.35rem' }}>호두</span>
+                  <div className="bg-amber-100 rounded-full px-3 py-1.5 border-3 border-dashed border-amber-600">
+                    <div className="flex gap-1">
+                      {[...Array(3)].map((_, i) => <Walnut key={i} size={36} />)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 도토리 두 묶음 */}
+                <div className="flex items-center gap-1.5 justify-center flex-wrap">
+                  <span className="font-display text-orange-700 w-20 text-right whitespace-nowrap" style={{ fontSize: '1.35rem' }}>도토리</span>
+                  <div className="bg-orange-100 rounded-full px-3 py-1.5 border-3 border-dashed" style={{ borderColor: '#f97316' }}>
+                    <div className="flex gap-1">
+                      {[...Array(3)].map((_, i) => <Acorn key={i} size={36} />)}
+                    </div>
+                  </div>
+                  <div className="bg-rose-100 rounded-full px-3 py-1.5 border-3 border-dashed" style={{ borderColor: '#f43f5e' }}>
+                    <div className="flex gap-1">
+                      {[...Array(3)].map((_, i) => <Acorn key={i} size={36} />)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 설명 */}
+                <div className="bg-white rounded-lg p-4 border-2 border-emerald-200 text-center mt-1">
+                  <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.4rem', lineHeight: '2rem' }}>
+                    호두 <b className="text-amber-700">3개</b>를 기준으로 도토리는 <b className="text-orange-700">2배</b>! 기호 ":"로 쓰면
+                  </p>
+                  <p className="font-display text-emerald-700 my-2" style={{ fontSize: '4rem' }}>6 : 3</p>
+                  <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>"<b>도토리와 호두의 비</b>"</p>
+                  <p className="font-body text-stone-600 mt-2" style={{ fontSize: '1.2rem' }}>
+                    기준 호두는 ":" 뒤, 비교 도토리는 ":" 앞
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => setLessonStep(1)}>다른 표현도 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="animate-fade-up h-full flex flex-col items-center justify-center px-8 py-3 gap-4">
+        <div className="text-center">
+          <h2 className="font-display text-amber-900 mb-1" style={{ fontSize: '2.5rem' }}>"~에 대한" 으로도 말해요</h2>
+          <p className="font-body text-stone-700" style={{ fontSize: '1.4rem' }}>기준을 분명하게 보여주는 표현 방법</p>
+        </div>
+
+        <Card className="w-full max-w-6xl !p-6">
+          <div className="grid grid-cols-2 gap-5">
+            {/* 좌측: 묶음 그림 */}
+            <div className="bg-amber-50 rounded-xl p-5 border-2 border-amber-200 flex flex-col justify-center">
+              {/* 호두 한 묶음 */}
+              <div className="flex items-center gap-2 mb-3 justify-center">
+                <span className="font-display text-amber-800 w-20 text-right" style={{ fontSize: '1.35rem' }}>호두</span>
+                <div className="bg-amber-100 rounded-full px-3 py-1.5 border-3 border-dashed border-amber-600">
+                  <div className="flex gap-1">
+                    {[...Array(3)].map((_, i) => <Walnut key={i} size={40} />)}
+                  </div>
+                </div>
+              </div>
+
+              {/* 도토리 두 묶음 */}
+              <div className="flex items-center gap-1.5 mb-3 justify-center flex-wrap">
+                <span className="font-display text-orange-700 w-20 text-right" style={{ fontSize: '1.35rem' }}>도토리</span>
+                <div className="bg-orange-100 rounded-full px-3 py-1.5 border-3 border-dashed" style={{ borderColor: '#f97316' }}>
+                  <div className="flex gap-1">
+                    {[...Array(3)].map((_, i) => <Acorn key={i} size={40} />)}
+                  </div>
+                </div>
+                <div className="bg-rose-100 rounded-full px-3 py-1.5 border-3 border-dashed" style={{ borderColor: '#f43f5e' }}>
+                  <div className="flex gap-1">
+                    {[...Array(3)].map((_, i) => <Acorn key={i} size={40} />)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-4 border-2 border-emerald-300 text-center mt-3">
+                <p className="font-display text-emerald-700 my-1" style={{ fontSize: '3.8rem' }}>6 : 3</p>
+                <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>"<b>도토리와 호두의 비</b>"</p>
+              </div>
+            </div>
+
+            {/* 우측: 3가지 읽기 + ~에 대한 */}
+            <div className="flex flex-col gap-3">
+              <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-300">
+                <p className="font-display text-emerald-800 text-center mb-3" style={{ fontSize: '1.5rem' }}>
+                  💡 <b className="text-emerald-700">6 : 3</b>을 읽는 3가지 방법
+                </p>
+                <div className="bg-white rounded-lg p-4 border-2 border-emerald-200 space-y-2.5">
+                  <p className="font-display text-emerald-700" style={{ fontSize: '1.55rem' }}>① 6 대 3</p>
+                  <p className="font-display text-emerald-700" style={{ fontSize: '1.55rem' }}>② 6과 3의 비</p>
+                  <p className="font-display text-emerald-700" style={{ fontSize: '1.55rem' }}>③ <b className="text-rose-600">3</b>에 대한 6의 비</p>
+                </div>
+              </div>
+
+              <div className="bg-orange-50 rounded-xl p-5 border-2 border-orange-300 text-center">
+                <p className="font-display text-orange-800" style={{ fontSize: '1.6rem' }}>
+                  ✨ "<b>~에 대한</b>"은 비를 읽는 또 다른 방법!
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <div className="flex items-center justify-center gap-3">
+          <Button onClick={() => setLessonStep(0)} variant="soft">← 이전</Button>
+          <Button onClick={() => setStep(2)}>이해했어요! <ArrowRight size={22} className="inline ml-1" /></Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSummary = () => (
+    <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
+      <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>✨ 비의 숲 — 핵심 정리</h2>
+      <p className="font-body text-stone-600 text-center mb-3" style={{ fontSize: '1.4rem' }}>잊지 말아요! 비의 핵심 4가지</p>
+
+      <div className="flex-1 grid grid-cols-2 gap-4">
+        <Card className="!p-5 bg-orange-50 border-orange-200">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-orange-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-orange-900" style={{ fontSize: '1.6rem' }}>1</span></div>
+            <p className="font-display text-orange-800" style={{ fontSize: '1.7rem' }}>비란?</p>
+          </div>
+          <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.3rem' }}>두 양을 비교할 때 기호 ":"를 써서 나타낸 것</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-orange-200 text-center">
+            <p className="font-display text-orange-700" style={{ fontSize: '2.6rem' }}>3 : 5</p>
+          </div>
+        </Card>
+
+        <Card className="!p-5 bg-emerald-50 border-emerald-200">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-emerald-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-emerald-900" style={{ fontSize: '1.6rem' }}>2</span></div>
+            <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem' }}>어떻게 쓸까?</p>
+          </div>
+          <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.3rem' }}>문제에서 <b>먼저 말한 양</b>이 ":" 앞에 와요</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-emerald-200 text-center">
+            <p className="font-display text-emerald-700" style={{ fontSize: '1.4rem' }}>"도토리와 호두의 비" → 도토리 : 호두</p>
+          </div>
+        </Card>
+
+        <Card className="!p-5 bg-amber-50 border-amber-300">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-amber-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-amber-900" style={{ fontSize: '1.6rem' }}>3</span></div>
+            <p className="font-display text-amber-800" style={{ fontSize: '1.7rem' }}>3 가지로 읽어요</p>
+          </div>
+          <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.2rem' }}>예) <b className="text-emerald-700" style={{ fontSize: '1.5rem' }}>3 : 5</b> 를 읽으면</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-amber-300 space-y-2">
+            <p className="font-display text-amber-700" style={{ fontSize: '1.4rem' }}>① 3 대 5</p>
+            <p className="font-display text-amber-700" style={{ fontSize: '1.4rem' }}>② 3과 5의 비</p>
+            <p className="font-display text-amber-700" style={{ fontSize: '1.4rem' }}>③ 5에 대한 3의 비</p>
+          </div>
+        </Card>
+
+        <Card className="!p-5 bg-rose-50 border-rose-200">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-rose-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-rose-900" style={{ fontSize: '1.6rem' }}>4</span></div>
+            <p className="font-display text-rose-800" style={{ fontSize: '1.7rem' }}>"~에 대한" = 기준!</p>
+          </div>
+          <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.3rem' }}>
+            "<b className="text-emerald-700">~에 대한</b>" 뒤에 오는 양이 <b>기준량</b>이에요
+          </p>
+          <div className="bg-white rounded-xl p-3 border-2 border-rose-200 text-center">
+            <p className="font-display text-rose-700" style={{ fontSize: '1.4rem' }}>"<b>5</b>에 대한 3의 비"</p>
+            <p className="font-body text-stone-600 mt-1" style={{ fontSize: '1.15rem' }}>→ 5가 기준 → <b className="text-rose-700">3 : 5</b></p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="text-right mt-3">
+        <Button onClick={() => setStep(3)}>연습하러 가기 <ArrowRight size={22} className="inline ml-1" /></Button>
+      </div>
+    </div>
+  );
+
+  const renderPractice = () => {
+    const koNum = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+    const ready = acornCount > 0 && walnutCount > 0;
+    const isFreeStyle = practiceStep === 0;
+    const isLast = practiceStep === 2;
+    const correct = practiceFeedback === 'correct';
+    const showResult = isFreeStyle ? ready : correct;
+
+    const resetActivity = () => {
+      setAcornCount(0);
+      setWalnutCount(0);
+      setPracticeInputA('');
+      setPracticeInputB('');
+      setPracticeFeedback(null);
+      setReadsShown({});
+    };
+
+    const checkAnswer = () => {
+      if (Number(practiceInputA) === acornCount && Number(practiceInputB) === walnutCount) {
+        setPracticeFeedback('correct');
+      } else {
+        setPracticeFeedback('wrong');
+      }
+    };
+
+    const goNextActivity = () => {
+      resetActivity();
+      if (isLast) {
+        setQuizSize(null);
+        setSelectedQuestions([]);
+        setQIndex(0);
+        setQAnswers([]);
+        setStep(4);
+      } else {
+        setPracticeStep(practiceStep + 1);
+      }
+    };
+
+    const toggleRead = (n) => setReadsShown(p => ({ ...p, [n]: !p[n] }));
+
+    const a = acornCount, b = walnutCount;
+
+    return (
+      <div className="animate-fade-up h-full flex flex-col px-8 pt-3 pb-3 overflow-hidden">
+        <div className="text-center mb-2">
+          <h2 className="font-display text-amber-900" style={{ fontSize: '2.5rem' }}>
+            활동 {practiceStep + 1} {isFreeStyle ? '— 직접 만들어 보자!' : '— 비를 직접 써 봐요!'}
+          </h2>
+          <p className="font-body text-stone-600" style={{ fontSize: '1.4rem' }}>
+            {isFreeStyle
+              ? '도토리와 호두를 놓고, 클릭하여 3가지로 읽어 봐요'
+              : '도토리와 호두를 놓은 다음, 비를 직접 써 보세요'}
+          </p>
+        </div>
+
+        <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+          {/* 좌측: 도토리/호두 +/- */}
+          <div className="flex flex-col gap-3 min-h-0">
+            <div className="bg-orange-50 rounded-2xl p-4 border-2 border-orange-200 flex-1 flex flex-col min-h-0">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-display text-orange-700" style={{ fontSize: '1.7rem' }}>🌰 도토리</span>
+                <span className="font-display text-orange-700 bg-white rounded-full w-16 h-16 flex items-center justify-center border-2 border-orange-300" style={{ fontSize: '2.2rem' }}>{acornCount}</span>
+              </div>
+              <div className="relative flex-1 min-h-0">
+                <div className="h-full flex flex-wrap gap-1 justify-center items-center px-3 py-1 content-center">
+                  {[...Array(acornCount)].map((_, i) => (
+                    <div key={i} className="animate-pop-in -mx-1"><Acorn size={48} /></div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => { setAcornCount(Math.max(0, acornCount - 1)); setPracticeFeedback(null); setReadsShown({}); }}
+                  className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-800 font-display rounded-xl border-b-4 border-orange-300 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>−</button>
+                <button onClick={() => { if (acornCount < 9) { setAcornCount(acornCount + 1); setPracticeFeedback(null); setReadsShown({}); } }}
+                  className="flex-1 bg-orange-400 hover:bg-orange-500 text-white font-display rounded-xl border-b-4 border-orange-600 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>+</button>
+              </div>
+            </div>
+            <div className="bg-amber-50 rounded-2xl p-4 border-2 border-amber-300 flex-1 flex flex-col min-h-0">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-display text-amber-800" style={{ fontSize: '1.7rem' }}>🥜 호두</span>
+                <span className="font-display text-amber-800 bg-white rounded-full w-16 h-16 flex items-center justify-center border-2 border-amber-300" style={{ fontSize: '2.2rem' }}>{walnutCount}</span>
+              </div>
+              <div className="relative flex-1 min-h-0">
+                <div className="h-full flex flex-wrap gap-1 justify-center items-center px-3 py-1 content-center">
+                  {[...Array(walnutCount)].map((_, i) => (
+                    <div key={i} className="animate-pop-in -mx-1"><Walnut size={48} /></div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => { setWalnutCount(Math.max(0, walnutCount - 1)); setPracticeFeedback(null); setReadsShown({}); }}
+                  className="flex-1 bg-amber-100 hover:bg-amber-200 text-amber-800 font-display rounded-xl border-b-4 border-amber-300 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>−</button>
+                <button onClick={() => { if (walnutCount < 9) { setWalnutCount(walnutCount + 1); setPracticeFeedback(null); setReadsShown({}); } }}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-display rounded-xl border-b-4 border-amber-700 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>+</button>
+              </div>
+            </div>
+          </div>
+
+          {/* 우측: 결과 / 입력 */}
+          <div className="flex items-center justify-center min-h-0">
+            {!ready && (
+              <div className="bg-amber-50 rounded-2xl p-7 border-2 border-dashed border-amber-300 text-center w-full">
+                <div className="mb-3" style={{ fontSize: '4rem' }}>👈</div>
+                <p className="font-body text-amber-800" style={{ fontSize: '1.6rem', lineHeight: '2.4rem' }}>+ 버튼으로<br />도토리와 호두를 담아봐요</p>
+              </div>
+            )}
+
+            {ready && !isFreeStyle && !correct && (
+              <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-200 w-full text-center">
+                <p className="font-body text-stone-700 mb-4" style={{ fontSize: '1.5rem' }}>
+                  <b className="text-orange-700">도토리</b>와 <b className="text-amber-700">호두</b>의 <b>비</b>를 써 봐요!
+                </p>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <input type="text" inputMode="numeric" value={practiceInputA}
+                    onChange={(e) => setPracticeInputA(e.target.value)}
+                    className="w-24 text-center font-display border-2 border-b-4 border-orange-300 rounded-xl py-2 outline-none focus:border-orange-500"
+                    style={{ fontSize: '2.4rem' }} placeholder="?" />
+                  <span className="font-display text-stone-700" style={{ fontSize: '2.4rem' }}>:</span>
+                  <input type="text" inputMode="numeric" value={practiceInputB}
+                    onChange={(e) => setPracticeInputB(e.target.value)}
+                    className="w-24 text-center font-display border-2 border-b-4 border-amber-400 rounded-xl py-2 outline-none focus:border-amber-600"
+                    style={{ fontSize: '2.4rem' }} placeholder="?" />
+                </div>
+                <Button onClick={checkAnswer} disabled={!practiceInputA || !practiceInputB}>확인 ✨</Button>
+                {practiceFeedback === 'wrong' && (
+                  <p className="font-body text-orange-700 mt-3 animate-shake" style={{ fontSize: '1.25rem' }}>
+                    💪 다시! <b>도토리</b>는 ":" 앞, <b>호두</b>는 ":" 뒤
+                  </p>
+                )}
+              </div>
+            )}
+
+            {showResult && (
+              <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-300 w-full text-center animate-pop-in">
+                {!isFreeStyle && (
+                  <p className="font-display text-emerald-800 mb-1" style={{ fontSize: '1.7rem' }}>🎉 정답!</p>
+                )}
+                <p className="font-body text-stone-700 mb-1" style={{ fontSize: '1.4rem' }}>도토리와 호두의 비</p>
+                <p className="font-display text-emerald-700 my-1 leading-none" style={{ fontSize: '4.6rem' }}>{a} : {b}</p>
+                <p className="font-body text-stone-600 mt-3 mb-2" style={{ fontSize: '1.2rem' }}>👇 클릭해서 3가지로 읽어 봐요</p>
+                <div className="space-y-2">
+                  <button onClick={() => toggleRead(1)}
+                    className={`w-full rounded-lg py-3 px-3 border-2 transition-all font-display ${readsShown[1] ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-orange-200 text-stone-500 hover:bg-orange-50'}`}
+                    style={{ fontSize: '1.5rem' }}>
+                    {readsShown[1] ? `① ${koNum[a]} 대 ${koNum[b]}` : '① ___ 대 ___ (클릭)'}
+                  </button>
+                  <button onClick={() => toggleRead(2)}
+                    className={`w-full rounded-lg py-3 px-3 border-2 transition-all font-display ${readsShown[2] ? 'bg-emerald-100 border-emerald-400 text-emerald-800' : 'bg-white border-emerald-200 text-stone-500 hover:bg-emerald-50'}`}
+                    style={{ fontSize: '1.5rem' }}>
+                    {readsShown[2] ? `② ${a}과 ${b}의 비` : '② ___과 ___의 비 (클릭)'}
+                  </button>
+                  <button onClick={() => toggleRead(3)}
+                    className={`w-full rounded-lg py-3 px-3 border-2 transition-all font-display ${readsShown[3] ? 'bg-rose-100 border-rose-400 text-rose-800' : 'bg-white border-rose-200 text-stone-500 hover:bg-rose-50'}`}
+                    style={{ fontSize: '1.5rem' }}>
+                    {readsShown[3] ? `③ ${b}에 대한 ${a}의 비` : '③ ___에 대한 ___의 비 (클릭)'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center mt-3">
+          {practiceStep > 0 ? (
+            <Button onClick={() => { resetActivity(); setPracticeStep(0); }} variant="soft">← 활동 1로</Button>
+          ) : <span />}
+          {showResult && (
+            <Button onClick={goNextActivity}>
+              {isLast ? '퀴즈 풀러 가기' : `활동 ${practiceStep + 2}로`} <ArrowRight size={22} className="inline ml-1" />
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+  const startQuiz = (size) => {
+    const shuffled = [...quizPool].sort(() => Math.random() - 0.5).slice(0, size);
+    setSelectedQuestions(shuffled);
+    setQuizSize(size);
+    setQIndex(0);
+    setQAnswers([]);
+    setAttempts(0);
+    setFeedback(null);
+  };
+
+  const renderQuizSelect = () => (
+    <div className="animate-fade-up h-full flex flex-col items-center justify-center px-12 gap-5">
+      <div className="animate-bounce-soft mb-1"><Squirrel size={150} mood="happy" /></div>
+      <h2 className="font-display text-6xl text-amber-900 leading-none">몇 문제 풀어볼까요?</h2>
+      <p className="font-body text-stone-700 text-3xl">원하는 문제 수를 골라봐요!</p>
+      <div className="flex gap-6 mt-3">
+        {[
+          { n: 3, color: 'bg-emerald-400 hover:bg-emerald-500 border-emerald-600', label: '쉬움' },
+          { n: 5, color: 'bg-orange-400 hover:bg-orange-500 border-orange-600', label: '보통' },
+          { n: 10, color: 'bg-rose-400 hover:bg-rose-500 border-rose-600', label: '도전!' },
+        ].map(({ n, color, label }) => (
+          <button key={n} onClick={() => startQuiz(n)}
+            className={`${color} text-white rounded-3xl border-b-8 btn-shadow px-12 py-7 flex flex-col items-center gap-1`}>
+            <span className="font-display leading-none" style={{ fontSize: '5rem' }}>{n}</span>
+            <span className="font-display text-3xl">문제</span>
+            <span className="font-body text-xl opacity-90">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const advanceToNext = (correct) => {
+    const newAnswers = [...qAnswers, correct];
+    setQAnswers(newAnswers);
+    setFeedback(null);
+    setAttempts(0);
+    if (qIndex + 1 < selectedQuestions.length) {
+      setQIndex(qIndex + 1);
+    } else {
+      const total = selectedQuestions.length;
+      const correctCount = newAnswers.filter(Boolean).length;
+      const r = correctCount / total;
+      const finalStars = r >= 0.95 ? 3 : r >= 0.6 ? 2 : r > 0 ? 1 : 0;
+      onComplete(finalStars);
+      setShowConfetti(true);
+      setStep(5);
+      setTimeout(() => setShowConfetti(false), 4000);
+    }
+  };
+
+  const tryAgain = () => {
+    setFeedback(null);
+    setAttempts(attempts + 1);
+  };
+
+  const goRelearn = () => {
+    setFeedback(null);
+    setAttempts(0);
+    setQuizSize(null);
+    setSelectedQuestions([]);
+    setQIndex(0);
+    setQAnswers([]);
+    setStep(0);
+  };
+
+  const renderQuiz = () => {
+    const q = selectedQuestions[qIndex];
+    if (!q) return null;
+
+    const handleAnswer = (i) => {
+      const correct = i === q.answer;
+      setFeedback({ correct, picked: i });
+      if (correct && onCorrect) onCorrect();
+    };
+
+    return (
+      <div className="animate-fade-up h-full flex items-center justify-center px-8">
+        <Card className="w-full max-w-5xl p-7">
+          <div className="flex justify-between items-center mb-5">
+            <span className="font-display text-amber-700 text-3xl">문제 {qIndex + 1} / {quizSize}</span>
+            <div className="flex gap-2 flex-wrap max-w-md justify-end">
+              {[...Array(quizSize)].map((_, i) => (
+                <div key={i} className={`w-5 h-5 rounded-full ${i < qIndex ? 'bg-emerald-400' : i === qIndex ? 'bg-orange-400' : 'bg-amber-200'}`} />
+              ))}
+            </div>
+          </div>
+
+          <p className="font-body text-stone-800 text-4xl mb-5 leading-snug">{q.q}</p>
+
+          {q.visual && (
+            <div className="bg-amber-50 rounded-2xl p-4 mb-5 border-2 border-amber-200">
+              <div className="flex items-center gap-3 flex-wrap mb-3">
+                <span className="font-display text-orange-700 text-3xl w-28">도토리</span>
+                {[...Array(q.visual.a)].map((_, i) => <Acorn key={i} size={48} />)}
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-display text-amber-800 text-3xl w-28">호두</span>
+                {[...Array(q.visual.w)].map((_, i) => <Walnut key={i} size={48} />)}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-4 gap-4">
+            {q.options.map((opt, i) => {
+              const isPicked = feedback?.picked === i;
+              const isCorrect = i === q.answer;
+              let style = 'bg-white hover:bg-amber-50 border-amber-200 text-stone-800';
+              if (feedback) {
+                if (isPicked && isCorrect) style = 'bg-emerald-100 border-emerald-400 text-emerald-900';
+                else if (isPicked && !isCorrect) style = 'bg-red-100 border-red-400 text-red-900 animate-shake';
+                else style = 'bg-white border-amber-200 text-stone-500 opacity-60';
+              }
+              return (
+                <button key={i}
+                  onClick={() => !feedback && handleAnswer(i)}
+                  disabled={!!feedback}
+                  className={`font-display text-4xl px-3 py-7 rounded-2xl border-2 border-b-4 transition-all ${style}`}>
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderQuizModal = () => {
+    if (!feedback || step !== 4) return null;
+    const q = selectedQuestions[qIndex];
+    if (!q) return null;
+
+    if (feedback.correct) {
+      return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="bg-white rounded-3xl p-10 max-w-2xl w-full card-shadow border-4 border-emerald-300 text-center animate-pop-in">
+            <div className="text-9xl mb-3">🎉</div>
+            <h3 className="font-display text-emerald-700 mb-3" style={{ fontSize: '5rem' }}>정답이에요!</h3>
+            <p className="font-body text-stone-700 text-3xl mb-6">정말 잘했어요!</p>
+            <Button onClick={() => advanceToNext(true)} variant="secondary">
+              {qIndex + 1 < selectedQuestions.length ? '다음 문제로 →' : '결과 보기 →'}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (attempts === 0) {
+      return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="bg-white rounded-3xl p-8 max-w-3xl w-full card-shadow border-4 border-orange-300 text-center animate-pop-in">
+            <div className="text-8xl mb-2">😅</div>
+            <h3 className="font-display text-orange-700 mb-3" style={{ fontSize: '4rem' }}>앗, 틀렸어요!</h3>
+            <div className="bg-amber-50 rounded-2xl p-5 my-4 border-2 border-amber-200 text-left">
+              <p className="font-display text-amber-900 text-3xl mb-2">📖 비 다시 보기</p>
+              <p className="font-body text-stone-700 text-2xl leading-relaxed" style={{ wordBreak: 'keep-all' }}>
+                {(typeof q.explanation === 'string' ? q.explanation.split(/(?<=[.!?])\s+/) : [q.explanation]).map((s, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 ? ' ' : null}
+                    <span style={{ display: 'inline-block' }}>{s}</span>
+                  </React.Fragment>
+                ))}
+              </p>
+            </div>
+            <Button onClick={tryAgain} variant="primary">한 번 더 도전!</Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+        <div className="bg-white rounded-3xl p-8 max-w-2xl w-full card-shadow border-4 border-rose-300 text-center animate-pop-in">
+          <div className="text-8xl mb-2">📚</div>
+          <h3 className="font-display text-rose-700 mb-3" style={{ fontSize: '4rem' }}>괜찮아요!</h3>
+          <p className="font-body text-stone-700 text-3xl mb-2">처음부터 다시 차근차근 공부하고 와요!</p>
+          <p className="font-body text-stone-500 text-2xl mb-6">비를 더 잘 이해하면 쉽게 풀 수 있어요</p>
+          <Button onClick={goRelearn} variant="secondary">📚 처음부터 다시 공부하기</Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDone = () => (
+    <div className="animate-fade-up h-full flex items-center justify-center px-16 gap-10">
+      <div className="text-center flex-shrink-0">
+        <div className="animate-bounce-soft mb-4 inline-block"><Squirrel size={220} mood="happy" /></div>
+        <div className="flex justify-center"><StarRow count={stars} size={56} /></div>
+      </div>
+      <Card className="flex-1 max-w-xl">
+        <h2 className="font-display text-4xl text-amber-900 mb-2">잘했어요! 🎉</h2>
+        <p className="font-body text-stone-700 text-xl">비의 숲을 통과했어요!</p>
+        <p className="font-body text-stone-600 text-base mt-2">{score} / 3 문제 정답</p>
+        <div className="bg-amber-50 rounded-2xl p-5 mt-5 border-2 border-amber-200">
+          <p className="font-display text-amber-900 mb-2 text-lg">📚 오늘 배운 것</p>
+          <ul className="font-body text-stone-700 text-base space-y-1.5">
+            <li>• 두 양을 비교할 때 <b>"3 : 5"</b> 처럼 쓴 것을 <b>비</b>라고 해요</li>
+            <li>• 기호 <b>":"</b> 를 사용해요</li>
+            <li>• "삼 대 오" 또는 "3과 5의 비"라고 읽어요</li>
+          </ul>
+        </div>
+        <div className="text-right mt-5">
+          <Button onClick={onHome} variant="soft">지도로 가기</Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  return (
+    <div className="w-full h-full app-bg relative flex flex-col overflow-hidden">
+      {showConfetti && <Confetti />}
+      <TopBar
+        onHome={onHome}
+        onBack={!showOverview ? goOverview : null}
+        title="🌰 비의 숲"
+        progress={showOverview ? '목차' : `${step === 0 ? 1 + introStep : step === 1 ? 3 + lessonStep : step + 3}/8`}
+      />
+      <div className="flex-1 overflow-hidden">
+        {showOverview ? (
+          <StageOverview
+            stageNumber="1"
+            stageBadge="🌰 비"
+            stageTitle="비의 숲"
+            stageGoal="두 양의 관계를 비로 나타내는 방법을 알아봐요"
+            accentClass="border-orange-400"
+            cards={overviewCards}
+            visitedCards={visitedCards}
+            onCardClick={handleCardClick}
+          />
+        ) : (
+          <>
+            {step === 0 && renderIntro()}
+            {step === 1 && renderLesson()}
+            {step === 2 && renderSummary()}
+            {step === 3 && renderPractice()}
+            {step === 4 && !quizSize && renderQuizSelect()}
+            {step === 4 && quizSize && renderQuiz()}
+            {step === 5 && renderDone()}
+          </>
+        )}
+      </div>
+      {renderQuizModal()}
+    </div>
+  );
+};
+
+// ============ STAGE 2: 비율 ============
+const Stage2 = ({ onHome, onComplete, onCorrect }) => {
+  const [step, setStep] = useState(0);
+  const [a, setA] = useState(3);
+  const [b, setB] = useState(5);
+  const [practiceStep, setPracticeStep] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [qIndex, setQIndex] = useState(0);
+  const [qAnswers, setQAnswers] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [attempts, setAttempts] = useState(0);
+  const [quizSize, setQuizSize] = useState(null);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [showOverview, setShowOverview] = useState(true);
+  const [visitedCards, setVisitedCards] = useState(new Set());
+
+  const overviewCards = [
+    { id: 1, icon: '📖', title: '문제 상황', step: 0 },
+    { id: 2, icon: '🔵', title: '개념 학습', step: 1 },
+    { id: 3, icon: '✨', title: '핵심 정리', step: 2 },
+    { id: 4, icon: '📝', title: '연습하기', step: 3 },
+    { id: 5, icon: '⚡', title: '빠른 연산 (퀴즈)', step: 4 },
+  ];
+
+  const handleCardClick = (card) => {
+    setVisitedCards(prev => new Set([...prev, card.id]));
+    setShowOverview(false);
+    setStep(card.step);
+  };
+
+  const goOverview = () => setShowOverview(true);
+
+  const ratioDecimal = Math.round((a / b) * 1000) / 1000;
+
+  const HINT_BASE = '":" 뒤에 있는 수가 기준량, ":" 앞에 있는 수가 비교하는 양이에요. 잘 살펴봐요!';
+  const HINT_FRAC = (
+    <span>
+      ":" <b className="text-orange-700">앞</b>이 <b className="text-orange-700">비교하는 양</b>, ":" <b className="text-emerald-700">뒤</b>가 <b className="text-emerald-700">기준량</b>이에요.
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.6rem', verticalAlign: 'middle' }}>
+        <span>→ 분수로:</span>
+        <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.78em', lineHeight: '1.15' }}>
+          <span className="text-orange-700" style={{ padding: '0 0.35rem' }}>비교하는 양</span>
+          <span style={{ borderTop: '3px solid #555', alignSelf: 'stretch', margin: '3px 0' }}></span>
+          <span className="text-emerald-700" style={{ padding: '0 0.35rem' }}>기준량</span>
+        </span>
+      </span>
+    </span>
+  );
+  const HINT_DEC = (
+    <span>
+      비율을 소수로 바꿀 때는 <b className="text-orange-700">비교하는 양</b> ÷ <b className="text-emerald-700">기준량</b>을 계산해요.
+    </span>
+  );
+  const HINT_FRAC_FROM_DEC = (
+    <span>
+      소수를 분수로 바꿀 때는 분모를 <b className="text-emerald-700">100</b>으로 만들어 봐요.
+      <span style={{ marginLeft: '0.4rem' }}>(소수 두 자리 → 분모 100, 한 자리 → 분모 10)</span>
+      <span style={{ marginLeft: '0.4rem' }}>그 다음 약분할 수 있는지 확인해요.</span>
+    </span>
+  );
+
+  const quizPool = [
+    { q: '"4 대 7"의 비에서 기준량은 무엇일까요?', options: ['4', '7', '11', '3'], answer: 1, explanation: HINT_BASE },
+    { q: '"5 : 9"의 비에서 비교하는 양은 무엇일까요?', options: ['5', '9', '14', '4'], answer: 0, explanation: HINT_BASE },
+    { q: '"8 : 3"의 비에서 기준량은 무엇일까요?', options: ['8', '3', '11', '5'], answer: 1, explanation: HINT_BASE },
+    { q: '"2 : 5"를 분수로 나타내면?', options: ['2/5', '5/2', '2/7', '7/2'], answer: 0, explanation: HINT_FRAC },
+    { q: <>비율 <Fraction num="1" den="2" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.12', '0.2', '0.5', '1.2'], answer: 2, explanation: HINT_DEC },
+    { q: '"7 : 4"의 비에서 비교하는 양은?', options: ['4', '7', '11', '3'], answer: 1, explanation: HINT_BASE },
+    { q: <>비율 <Fraction num="1" den="4" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.14', '0.25', '0.4', '0.75'], answer: 1, explanation: HINT_DEC },
+    { q: '"9 : 5"를 분수로 나타내면?', options: ['5/9', '9/5', '9/14', '5/14'], answer: 1, explanation: HINT_FRAC },
+    { q: <>비율 <Fraction num="1" den="5" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.15', '0.2', '0.5', '1.5'], answer: 1, explanation: HINT_DEC },
+    { q: '"6 : 8"의 비에서 기준량은?', options: ['6', '8', '14', '2'], answer: 1, explanation: HINT_BASE },
+    { q: <>비율 <Fraction num="3" den="10" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.03', '0.3', '3.10', '10.3'], answer: 1, explanation: HINT_DEC },
+    { q: '"3 : 7"의 비에서 비교하는 양은?', options: ['7', '3', '10', '4'], answer: 1, explanation: HINT_BASE },
+    { q: <>비율 <Fraction num="7" den="10" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.07', '0.7', '7.10', '0.107'], answer: 1, explanation: HINT_DEC },
+    { q: '"9 : 2"를 분수로 나타내면?', options: ['2/9', '9/2', '9/11', '2/11'], answer: 1, explanation: HINT_FRAC },
+    { q: '"5 : 8"의 비에서 기준량은?', options: ['5', '8', '13', '3'], answer: 1, explanation: HINT_BASE },
+    { q: <>비율 <Fraction num="2" den="5" color="currentColor" size="2rem" />를 소수로 나타내면?</>, options: ['0.25', '0.4', '0.52', '0.5'], answer: 1, explanation: HINT_DEC },
+    { q: '"4 : 1"의 비에서 비교하는 양은?', options: ['1', '4', '5', '3'], answer: 1, explanation: HINT_BASE },
+    { q: '"6 : 11"을 분수로 나타내면?', options: ['11/6', '6/11', '6/17', '11/17'], answer: 1, explanation: HINT_FRAC },
+    { q: <>비율 <Fraction num="3" den="4" color="currentColor" size="2rem" />를 소수로 나타내면?</>, options: ['0.34', '0.43', '0.75', '1.33'], answer: 2, explanation: HINT_DEC },
+    { q: '"1 : 10"의 비에서 기준량은?', options: ['1', '10', '11', '9'], answer: 1, explanation: HINT_BASE },
+    { q: '비율 0.6을 분수로 나타내면?', options: ['1/6', '3/5', '6/5', '5/6'], answer: 1, explanation: HINT_FRAC_FROM_DEC },
+    { q: '비율 0.25를 분수로 나타내면?', options: ['1/4', '1/25', '25/10', '4/1'], answer: 0, explanation: HINT_FRAC_FROM_DEC },
+    { q: '비율 0.4를 분수로 나타내면?', options: ['1/4', '4/1', '2/5', '5/2'], answer: 2, explanation: HINT_FRAC_FROM_DEC },
+    { q: '비율 0.75를 분수로 나타내면?', options: ['7/5', '3/4', '4/3', '7/50'], answer: 1, explanation: HINT_FRAC_FROM_DEC },
+    { q: '비율 0.5를 분수로 나타내면?', options: ['1/2', '1/5', '5/1', '2/1'], answer: 0, explanation: HINT_FRAC_FROM_DEC },
+    { q: '비율 0.2를 분수로 나타내면?', options: ['1/2', '2/1', '1/5', '5/2'], answer: 2, explanation: HINT_FRAC_FROM_DEC },
+    { q: '비율 0.8을 분수로 나타내면?', options: ['8/1', '1/8', '4/5', '5/4'], answer: 2, explanation: HINT_FRAC_FROM_DEC },
+  ];
+
+  const score = qAnswers.filter(Boolean).length;
+  const totalQ = quizSize || 3;
+  const ratio = score / totalQ;
+  const stars = ratio >= 0.95 ? 3 : ratio >= 0.6 ? 2 : ratio > 0 ? 1 : 0;
+
+  const renderIntro = () => (
+    <div className="animate-fade-up h-full flex items-center justify-center px-10 py-5 gap-6">
+      <div className="animate-bounce-soft flex-shrink-0">
+        <Squirrel size={220} mood="thinking" />
+      </div>
+      <Card className="flex-1 max-w-4xl !p-8">
+        <h2 className="font-display text-amber-900 mb-4" style={{ fontSize: '2.9rem' }}>다람쥐의 새로운 호기심 📊</h2>
+        <p className="font-body text-stone-700 leading-relaxed" style={{ fontSize: '1.6rem', lineHeight: '2.6rem' }}>
+          가을이 한층 더 깊어진 어느 날,<br/>
+          다람쥐는 <b className="text-orange-600">도토리 3개</b>와 <b className="text-emerald-700">호두 5개</b>를 가지런히 놓아 보았어요.<br/>
+          "비로 쓰면 <span className="font-display text-orange-600">3 : 5</span> 인 건 알았는데..."
+        </p>
+        <div className="bg-amber-50 rounded-2xl p-6 mt-5 border-2 border-amber-200">
+          <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.7rem', lineHeight: '2.8rem' }}>
+            🤔 다람쥐는 더 궁금해졌어요.<br/>
+            <b>"도토리는 호두에 비해 얼마인 걸까?"</b><br/>
+            비를 <b>한 가지 수</b>로 나타낼 수는 없을까요?
+          </p>
+        </div>
+        <div className="text-right mt-6">
+          <Button onClick={() => setStep(1)}>비율 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const renderLesson = () => (
+    <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-4 overflow-hidden">
+      <h2 className="font-display text-3xl text-amber-900 text-center mb-1">비율로 바꾸기</h2>
+      <p className="font-body text-stone-600 text-center mb-3 text-xl">
+        기준량에 대한 비교하는 양의 크기를 <span className="font-bold text-orange-700">비율</span>이라고 해요
+      </p>
+
+      {/* Page-level outer grid : 비율 공식 (왼쪽) | 그림 위 + 분수로/소수로 좌우 (오른쪽) */}
+      <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
+        {/* Left: 비율 공식 (크게) */}
+        <Card className="flex flex-col justify-center">
+          <div className="bg-gradient-to-br from-emerald-50 to-amber-50 rounded-2xl p-6 border-2 border-emerald-200">
+            <div className="font-display flex flex-col items-center gap-4">
+              {/* 줄1: 비율 = 비교하는 양 ÷ 기준량 */}
+              <p className="flex items-center justify-center gap-2 flex-wrap">
+                <span className="text-stone-700 text-4xl">비율 =</span>
+                <span className="text-orange-700 text-2xl">비교하는 양</span>
+                <span className="text-stone-700 text-3xl">÷</span>
+                <span className="text-emerald-700 text-2xl">기준량</span>
+              </p>
+              {/* 줄2: = 기준량 분의 비교하는 양 (분수) */}
+              <p className="flex items-center justify-center gap-3">
+                <span className="text-stone-700 text-4xl">=</span>
+                <span className="inline-flex flex-col items-center leading-tight">
+                  <span className="text-orange-700 text-2xl px-2">비교하는 양</span>
+                  <span className="border-t-4 border-stone-700 self-stretch my-2"></span>
+                  <span className="text-emerald-700 text-2xl px-2">기준량</span>
+                </span>
+              </p>
+            </div>
+          </div>
+          <p className="font-body text-stone-600 text-center mt-4 text-xl">
+            🔍 비율은 <b>분수</b>나 <b>소수</b>로 나타낼 수 있어요
+          </p>
+        </Card>
+
+        {/* Right: 그림 (위) + 분수로/소수로 (아래, 좌우) */}
+        <Card className="flex flex-col">
+          {/* 그림 — 오른쪽 위 */}
+          <div className="flex-1 flex flex-col justify-center">
+            <p className="font-body text-stone-700 mb-4 text-center text-xl">예시: 3 : 5 의 비율</p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex gap-1.5 flex-1 justify-start">
+                {[...Array(3)].map((_, i) => <Acorn key={i} size={42} />)}
+              </div>
+              <span className="font-display text-orange-700 text-lg whitespace-nowrap">← 비교하는 양</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5 flex-1 justify-start">
+                {[...Array(5)].map((_, i) => <Walnut key={i} size={42} />)}
+              </div>
+              <span className="font-display text-emerald-700 text-lg whitespace-nowrap">← 기준량</span>
+            </div>
+
+            {/* 그림과 막대 사이 구분선 */}
+            <div className="my-5 border-t-2 border-dashed border-stone-200"></div>
+
+            <div className="grid grid-cols-5 gap-1 mb-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`h-9 rounded ${i < 3 ? 'bg-orange-400' : 'bg-emerald-200'} border-2 ${i < 3 ? 'border-orange-500' : 'border-emerald-300'}`} />
+              ))}
+            </div>
+            <p className="font-body text-stone-700 text-base text-center">
+              전체 <b className="text-emerald-700">5칸(기준량)</b> 중 <b className="text-orange-700">3칸(비교하는 양)</b>
+            </p>
+          </div>
+
+          {/* 공통: 3 ÷ 5 → 분수 / 소수 */}
+          <div className="bg-amber-50 rounded-2xl p-4 border-2 border-amber-200 mt-4">
+            <p className="font-display text-stone-800 text-center mb-3" style={{ fontSize: '2.6rem' }}>3 ÷ 5</p>
+            <div className="grid grid-cols-2">
+              <div className="text-center border-r-2 border-amber-300 px-2">
+                <p className="font-body text-stone-600 mb-2" style={{ fontSize: '1.25rem' }}>분수로 나타내기</p>
+                <Fraction num="3" den="5" color="#C2410C" size="3rem" />
+              </div>
+              <div className="text-center px-2">
+                <p className="font-body text-stone-600 mb-2" style={{ fontSize: '1.25rem' }}>소수로 나타내기</p>
+                <p className="font-display text-emerald-700" style={{ fontSize: '3.2rem' }}>0.6</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="text-right mt-3">
+        <Button onClick={() => setStep(2)}>핵심 정리 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+      </div>
+    </div>
+  );
+
+  const renderSummary = () => (
+    <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
+      <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>✨ 비율의 언덕 — 핵심 정리</h2>
+      <p className="font-body text-stone-600 text-center mb-3" style={{ fontSize: '1.4rem' }}>비율의 핵심 4가지를 정리해 봐요!</p>
+
+      <div className="flex-1 grid grid-cols-2 gap-4">
+        <Card className="!p-5 bg-orange-50 border-orange-200 flex flex-col justify-around">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-orange-900" style={{ fontSize: '1.6rem' }}>1</span></div>
+            <p className="font-display text-orange-800" style={{ fontSize: '1.7rem' }}>비율이란?</p>
+          </div>
+          <p className="font-body text-stone-700" style={{ fontSize: '1.35rem' }}>기준량에 대한 비교하는 양의 크기</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-orange-200 text-center">
+            <p className="font-display text-orange-700" style={{ fontSize: '1.5rem' }}>비율 = 비교하는 양 ÷ 기준량</p>
+          </div>
+        </Card>
+
+        <Card className="!p-5 bg-emerald-50 border-emerald-200 flex flex-col justify-around">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-emerald-900" style={{ fontSize: '1.6rem' }}>2</span></div>
+            <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem' }}>기준량과 비교하는 양</p>
+          </div>
+          <p className="font-body text-stone-700" style={{ fontSize: '1.35rem' }}>":" <b>뒤</b>가 기준량, <b>앞</b>이 비교하는 양</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-emerald-200 text-center">
+            <p className="font-display"><span className="text-orange-700" style={{ fontSize: '2.6rem' }}>3</span> <span className="text-stone-700" style={{ fontSize: '2.6rem' }}> : </span><span className="text-emerald-700" style={{ fontSize: '2.6rem' }}>5</span></p>
+            <p className="mt-1" style={{ fontSize: '1rem' }}><span className="text-orange-700 font-display">↑ 비교하는 양</span> <span className="mx-2"></span> <span className="text-emerald-700 font-display">↑ 기준량</span></p>
+          </div>
+        </Card>
+
+        <Card className="!p-5 bg-amber-50 border-amber-300 flex flex-col justify-around">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-amber-900" style={{ fontSize: '1.6rem' }}>3</span></div>
+            <p className="font-display text-amber-800" style={{ fontSize: '1.7rem' }}>분수로 나타내기</p>
+          </div>
+          <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.35rem' }}>":" <b className="text-orange-700">앞</b>이 분자, <b className="text-emerald-700">뒤</b>가 분모</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-amber-300 text-center flex items-center justify-center gap-3">
+            <span className="font-display text-stone-700" style={{ fontSize: '2rem' }}>3 : 5 =</span>
+            <Fraction num="3" den="5" color="#C2410C" size="2.2rem" />
+          </div>
+        </Card>
+
+        <Card className="!p-5 bg-rose-50 border-rose-200 flex flex-col justify-around">
+          <div className="flex items-center gap-3">
+            <div className="bg-rose-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-rose-900" style={{ fontSize: '1.6rem' }}>4</span></div>
+            <p className="font-display text-rose-800" style={{ fontSize: '1.7rem' }}>소수로 나타내기</p>
+          </div>
+          <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.35rem' }}>비교하는 양 ÷ 기준량으로 계산</p>
+          <div className="bg-white rounded-xl p-3 border-2 border-rose-200 text-center">
+            <p className="font-display text-rose-700" style={{ fontSize: '2rem' }}>3 ÷ 5 = 0.6</p>
+          </div>
+        </Card>
+      </div>
+
+      <div className="text-right mt-3">
+        <Button onClick={() => setStep(3)}>연습하러 가기 <ArrowRight size={22} className="inline ml-1" /></Button>
+      </div>
+    </div>
+  );
+
+  const renderPractice = () => {
+    const cleanFactor = 100 % b === 0 ? 100 / b : null;
+    const num100 = cleanFactor ? a * cleanFactor : null;
+
+    return (
+      <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
+        {practiceStep === 0 && (
+          <>
+            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>같은 비율 만들기 🔧</h2>
+            <p className="font-body text-stone-600 text-center mb-4" style={{ fontSize: '1.4rem' }}>슬라이더를 움직이며 비, 분수, 소수가 어떻게 같이 변하는지 봐요!</p>
+
+            <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
+              {/* 슬라이더 */}
+              <Card className="flex flex-col justify-around">
+                <div className="bg-orange-50 rounded-2xl p-5 border-2 border-orange-200">
+                  <div className="flex justify-between mb-3 items-center">
+                    <span className="font-display text-orange-700" style={{ fontSize: '1.6rem' }}>비교하는 양 (도토리)</span>
+                    <span className="font-display text-orange-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{a}</span>
+                  </div>
+                  <input type="range" min="1" max="10" value={a} onChange={(e) => setA(+e.target.value)}
+                    className="w-full h-3" />
+                  <div className="flex flex-wrap gap-1.5 mt-3 min-h-[44px]">
+                    {[...Array(a)].map((_, i) => <Acorn key={i} size={36} />)}
+                  </div>
+                </div>
+                <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-200">
+                  <div className="flex justify-between mb-3 items-center">
+                    <span className="font-display text-emerald-700" style={{ fontSize: '1.6rem' }}>기준량 (호두)</span>
+                    <span className="font-display text-emerald-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{b}</span>
+                  </div>
+                  <input type="range" min="1" max="10" value={b} onChange={(e) => setB(+e.target.value)}
+                    className="w-full h-3" />
+                  <div className="flex flex-wrap gap-1.5 mt-3 min-h-[44px]">
+                    {[...Array(b)].map((_, i) => <Walnut key={i} size={36} />)}
+                  </div>
+                </div>
+              </Card>
+
+              {/* 결과 */}
+              <Card className="flex flex-col justify-around bg-gradient-to-br from-amber-50 to-emerald-50">
+                <p className="font-body text-center text-stone-700" style={{ fontSize: '1.5rem' }}>아래 모두 <b>같은 비율</b>이에요!</p>
+                <div className="bg-white rounded-2xl p-4 border-2 border-orange-200 text-center card-shadow">
+                  <p className="font-body text-stone-600 mb-1" style={{ fontSize: '1.3rem' }}>비</p>
+                  <p className="font-display text-orange-700" style={{ fontSize: '3.6rem', lineHeight: '1' }}>{a} : {b}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 border-2 border-emerald-200 text-center card-shadow">
+                  <p className="font-body text-stone-600 mb-1" style={{ fontSize: '1.3rem' }}>분수</p>
+                  <Fraction num={a} den={b} color="#047857" size="2.8rem" />
+                </div>
+                <div className="bg-white rounded-2xl p-4 border-2 border-amber-300 text-center card-shadow">
+                  <p className="font-body text-stone-600 mb-1" style={{ fontSize: '1.3rem' }}>소수</p>
+                  <p className="font-display text-amber-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{ratioDecimal}</p>
+                </div>
+              </Card>
+            </div>
+
+            <div className="text-right mt-3">
+              <Button onClick={() => setPracticeStep(1)}>분수↔소수 자세히 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+            </div>
+          </>
+        )}
+
+        {practiceStep === 1 && (
+          <>
+            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>분수와 소수 바꾸기 🔁</h2>
+            <p className="font-body text-stone-600 text-center mb-4" style={{ fontSize: '1.4rem' }}>슬라이더로 비를 만들고, 분수↔소수가 어떻게 바뀌는지 봐요!</p>
+
+            {/* 위: 현재 비율 (한 줄 표시) */}
+            <div className="bg-gradient-to-br from-amber-50 to-emerald-50 rounded-2xl p-4 border-2 border-emerald-200 mb-4">
+              <p className="font-body text-stone-700 text-center mb-2" style={{ fontSize: '1.3rem' }}>현재 비율</p>
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <span className="font-display text-orange-700" style={{ fontSize: '2.5rem' }}>{a} : {b}</span>
+                <span className="font-display text-stone-400" style={{ fontSize: '2rem' }}>=</span>
+                <Fraction num={a} den={b} color="#047857" size="2.4rem" />
+                <span className="font-display text-stone-400" style={{ fontSize: '2rem' }}>=</span>
+                <span className="font-display text-amber-700" style={{ fontSize: '2.5rem' }}>{ratioDecimal}</span>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-3">
+                <span className="font-body text-stone-600" style={{ fontSize: '1.1rem' }}>도토리</span>
+                <input type="range" min="1" max="10" value={a} onChange={(e) => setA(+e.target.value)} className="w-32 h-3" />
+                <span className="font-display text-orange-700" style={{ fontSize: '1.5rem' }}>{a}</span>
+                <span className="mx-3 text-stone-300">|</span>
+                <span className="font-body text-stone-600" style={{ fontSize: '1.1rem' }}>호두</span>
+                <input type="range" min="1" max="10" value={b} onChange={(e) => setB(+e.target.value)} className="w-32 h-3" />
+                <span className="font-display text-emerald-700" style={{ fontSize: '1.5rem' }}>{b}</span>
+              </div>
+            </div>
+
+            {/* 아래: 두 변환 방법 */}
+            <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
+              <Card className="!p-5 bg-emerald-50 border-emerald-300 flex flex-col justify-around">
+                <p className="font-display text-emerald-800 text-center" style={{ fontSize: '1.7rem' }}>분수 → 소수</p>
+                <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.25rem' }}>
+                  <b className="text-emerald-700">비교하는 양 ÷ 기준량</b>을 계산해요
+                </p>
+                <div className="bg-white rounded-xl p-4 border-2 border-emerald-200 text-center flex items-center justify-center gap-3 flex-wrap" style={{ fontSize: '1.5rem' }}>
+                  <Fraction num={a} den={b} color="#047857" size="2rem" />
+                  <span className="text-stone-500">=</span>
+                  <span className="font-bold">{a} ÷ {b}</span>
+                  <span className="text-stone-500">=</span>
+                  <span className="font-display text-emerald-700" style={{ fontSize: '2.2rem' }}>{ratioDecimal}</span>
+                </div>
+              </Card>
+
+              <Card className="!p-5 bg-orange-50 border-orange-300 flex flex-col justify-around">
+                <p className="font-display text-orange-800 text-center" style={{ fontSize: '1.7rem' }}>소수 → 분수</p>
+                {cleanFactor ? (
+                  <>
+                    <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.25rem' }}>
+                      분모와 분자에 <b className="text-orange-700">같은 수를 곱해</b> 분모를 100으로
+                    </p>
+                    <div className="bg-white rounded-xl p-4 border-2 border-orange-200 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: '1.4rem' }}>
+                      <Fraction num={a} den={b} color="#C2410C" size="1.9rem" />
+                      <span className="text-stone-500" style={{ fontSize: '1.1rem' }}>×{cleanFactor}</span>
+                      <span className="text-stone-500">=</span>
+                      <Fraction num={num100} den="100" color="#C2410C" size="1.9rem" />
+                      <span className="text-stone-500">=</span>
+                      <span className="font-display text-orange-700" style={{ fontSize: '2rem' }}>{ratioDecimal}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.25rem' }}>
+                      분모가 <b>{b}</b>는 100을 만들 수 없어서 <br/><b className="text-orange-700">나눗셈</b>으로만 바꿀 수 있어요
+                    </p>
+                    <div className="bg-white rounded-xl p-4 border-2 border-orange-200 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: '1.4rem' }}>
+                      <span className="font-display text-orange-700" style={{ fontSize: '2rem' }}>{ratioDecimal}</span>
+                      <span className="text-stone-500">=</span>
+                      <span className="font-bold">{a} ÷ {b}</span>
+                      <span className="text-stone-500">=</span>
+                      <Fraction num={a} den={b} color="#C2410C" size="1.9rem" />
+                    </div>
+                  </>
+                )}
+              </Card>
+            </div>
+
+            <div className="flex justify-between mt-3">
+              <Button onClick={() => setPracticeStep(0)} variant="soft">← 이전</Button>
+              <Button onClick={() => { setQuizSize(null); setSelectedQuestions([]); setQIndex(0); setQAnswers([]); setStep(4); }}>퀴즈 풀러 가기 <ArrowRight size={22} className="inline ml-1" /></Button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const startQuiz = (size) => {
+    const shuffled = [...quizPool].sort(() => Math.random() - 0.5).slice(0, size);
+    setSelectedQuestions(shuffled);
+    setQuizSize(size);
+    setQIndex(0);
+    setQAnswers([]);
+    setAttempts(0);
+    setFeedback(null);
+  };
+
+  const renderQuizSelect = () => (
+    <div className="animate-fade-up h-full flex flex-col items-center justify-center px-12 gap-5">
+      <div className="animate-bounce-soft mb-1"><Squirrel size={150} mood="happy" /></div>
+      <h2 className="font-display text-6xl text-amber-900 leading-none">몇 문제 풀어볼까요?</h2>
+      <p className="font-body text-stone-700 text-3xl">원하는 문제 수를 골라봐요!</p>
+      <div className="flex gap-6 mt-3">
+        {[
+          { n: 3, color: 'bg-emerald-400 hover:bg-emerald-500 border-emerald-600', label: '쉬움' },
+          { n: 5, color: 'bg-orange-400 hover:bg-orange-500 border-orange-600', label: '보통' },
+          { n: 10, color: 'bg-rose-400 hover:bg-rose-500 border-rose-600', label: '도전!' },
+        ].map(({ n, color, label }) => (
+          <button key={n} onClick={() => startQuiz(n)}
+            className={`${color} text-white rounded-3xl border-b-8 btn-shadow px-12 py-7 flex flex-col items-center gap-1`}>
+            <span className="font-display leading-none" style={{ fontSize: '5rem' }}>{n}</span>
+            <span className="font-display text-3xl">문제</span>
+            <span className="font-body text-xl opacity-90">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const advanceToNext = (correct) => {
+    const newAnswers = [...qAnswers, correct];
+    setQAnswers(newAnswers);
+    setFeedback(null);
+    setAttempts(0);
+    if (qIndex + 1 < selectedQuestions.length) {
+      setQIndex(qIndex + 1);
+    } else {
+      const total = selectedQuestions.length;
+      const correctCount = newAnswers.filter(Boolean).length;
+      const r = correctCount / total;
+      const finalStars = r >= 0.95 ? 3 : r >= 0.6 ? 2 : r > 0 ? 1 : 0;
+      onComplete(finalStars);
+      setShowConfetti(true);
+      setStep(5);
+      setTimeout(() => setShowConfetti(false), 4000);
+    }
+  };
+
+  const tryAgain = () => {
+    setFeedback(null);
+    setAttempts(attempts + 1);
+  };
+
+  const goRelearn = () => {
+    setFeedback(null);
+    setAttempts(0);
+    setQuizSize(null);
+    setSelectedQuestions([]);
+    setQIndex(0);
+    setQAnswers([]);
+    setStep(0);
+  };
+
+  const renderOption = (opt) => {
+    if (typeof opt === 'string' && opt.includes('/') && !opt.includes(' ')) {
+      const parts = opt.split('/');
+      if (parts.length === 2 && parts[0].trim() && parts[1].trim()) {
+        return <Fraction num={parts[0].trim()} den={parts[1].trim()} color="currentColor" size="2.6rem" />;
+      }
+    }
+    return <span>{opt}</span>;
+  };
+
+  const renderQuiz = () => {
+    const q = selectedQuestions[qIndex];
+    if (!q) return null;
+
+    const handleAnswer = (i) => {
+      const correct = i === q.answer;
+      setFeedback({ correct, picked: i });
+      if (correct && onCorrect) onCorrect();
+    };
+
+    return (
+      <div className="animate-fade-up h-full flex items-center justify-center px-8">
+        <Card className="w-full max-w-5xl p-7">
+          <div className="flex justify-between items-center mb-5">
+            <span className="font-display text-amber-700 text-3xl">문제 {qIndex + 1} / {quizSize}</span>
+            <div className="flex gap-2 flex-wrap max-w-md justify-end">
+              {[...Array(quizSize)].map((_, i) => (
+                <div key={i} className={`w-5 h-5 rounded-full ${i < qIndex ? 'bg-emerald-400' : i === qIndex ? 'bg-orange-400' : 'bg-amber-200'}`} />
+              ))}
+            </div>
+          </div>
+
+          <p className="font-body text-stone-800 text-4xl mb-6 leading-snug">{q.q}</p>
+
+          <div className="grid grid-cols-4 gap-4">
+            {q.options.map((opt, i) => {
+              const isPicked = feedback?.picked === i;
+              const isCorrect = i === q.answer;
+              let style = 'bg-white hover:bg-amber-50 border-amber-200 text-stone-800';
+              if (feedback) {
+                if (isPicked && isCorrect) style = 'bg-emerald-100 border-emerald-400 text-emerald-900';
+                else if (isPicked && !isCorrect) style = 'bg-red-100 border-red-400 text-red-900 animate-shake';
+                else style = 'bg-white border-amber-200 text-stone-500 opacity-60';
+              }
+              return (
+                <button key={i}
+                  onClick={() => !feedback && handleAnswer(i)}
+                  disabled={!!feedback}
+                  className={`font-display text-4xl px-3 py-6 rounded-2xl border-2 border-b-4 transition-all flex items-center justify-center min-h-[110px] ${style}`}>
+                  {renderOption(opt)}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderQuizModal = () => {
+    if (!feedback || step !== 4) return null;
+    const q = selectedQuestions[qIndex];
+    if (!q) return null;
+
+    if (feedback.correct) {
+      return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="bg-white rounded-3xl p-10 max-w-2xl w-full card-shadow border-4 border-emerald-300 text-center animate-pop-in">
+            <div className="text-9xl mb-3">🎉</div>
+            <h3 className="font-display text-emerald-700 mb-3" style={{ fontSize: '5rem' }}>정답이에요!</h3>
+            <p className="font-body text-stone-700 text-3xl mb-6">정말 잘했어요!</p>
+            <Button onClick={() => advanceToNext(true)} variant="secondary">
+              {qIndex + 1 < selectedQuestions.length ? '다음 문제로 →' : '결과 보기 →'}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (attempts === 0) {
+      return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="bg-white rounded-3xl p-8 max-w-3xl w-full card-shadow border-4 border-orange-300 text-center animate-pop-in">
+            <div className="text-8xl mb-2">😅</div>
+            <h3 className="font-display text-orange-700 mb-3" style={{ fontSize: '4rem' }}>앗, 틀렸어요!</h3>
+            <div className="bg-amber-50 rounded-2xl p-5 my-4 border-2 border-amber-200 text-left">
+              <p className="font-display text-amber-900 text-3xl mb-2">📖 비율 다시 보기</p>
+              <p className="font-body text-stone-700 text-2xl leading-relaxed" style={{ wordBreak: 'keep-all' }}>
+                {(typeof q.explanation === 'string' ? q.explanation.split(/(?<=[.!?])\s+/) : [q.explanation]).map((s, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 ? ' ' : null}
+                    <span style={{ display: 'inline-block' }}>{s}</span>
+                  </React.Fragment>
+                ))}
+              </p>
+            </div>
+            <Button onClick={tryAgain} variant="primary">한 번 더 도전!</Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+        <div className="bg-white rounded-3xl p-8 max-w-2xl w-full card-shadow border-4 border-rose-300 text-center animate-pop-in">
+          <div className="text-8xl mb-2">📚</div>
+          <h3 className="font-display text-rose-700 mb-3" style={{ fontSize: '4rem' }}>괜찮아요!</h3>
+          <p className="font-body text-stone-700 text-3xl mb-2">처음부터 다시 차근차근 공부하고 와요!</p>
+          <p className="font-body text-stone-500 text-2xl mb-6">비율을 더 잘 이해하면 쉽게 풀 수 있어요</p>
+          <Button onClick={goRelearn} variant="secondary">📚 처음부터 다시 공부하기</Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDone = () => (
+    <div className="animate-fade-up h-full flex items-center justify-center px-16 gap-10">
+      <div className="text-center flex-shrink-0">
+        <div className="animate-bounce-soft mb-4 inline-block"><Squirrel size={220} mood="happy" /></div>
+        <div className="flex justify-center"><StarRow count={stars} size={56} /></div>
+      </div>
+      <Card className="flex-1 max-w-xl">
+        <h2 className="font-display text-4xl text-amber-900 mb-2">멋져요! 🎉</h2>
+        <p className="font-body text-stone-700 text-xl">비율의 언덕도 정복했어요!</p>
+        <p className="font-body text-stone-600 text-base mt-2">{score} / 3 문제 정답</p>
+        <div className="bg-amber-50 rounded-2xl p-5 mt-5 border-2 border-amber-200">
+          <p className="font-display text-amber-900 mb-2 text-lg">📚 오늘 배운 것</p>
+          <ul className="font-body text-stone-700 text-base space-y-1.5">
+            <li>• <b>":"</b> 뒤가 <b>기준량</b>, 앞이 <b>비교하는 양</b></li>
+            <li>• <b>비율 = 비교하는 양 ÷ 기준량</b></li>
+            <li>• 비율은 <b>분수</b>로도, <b>소수</b>로도 나타낼 수 있어요</li>
+          </ul>
+        </div>
+        <div className="text-right mt-5">
+          <Button onClick={onHome} variant="soft">지도로 가기</Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  return (
+    <div className="w-full h-full app-bg relative flex flex-col overflow-hidden">
+      {showConfetti && <Confetti />}
+      <TopBar
+        onHome={onHome}
+        onBack={!showOverview ? goOverview : null}
+        title="📊 비율의 언덕"
+        progress={showOverview ? '목차' : `${Math.min(step + 1, 6)}/6`}
+      />
+      <div className="flex-1 overflow-hidden">
+        {showOverview ? (
+          <StageOverview
+            stageNumber="2"
+            stageBadge="📊 비율"
+            stageTitle="비율의 언덕"
+            stageGoal="비율의 의미를 알고 분수·소수로 나타내요"
+            accentClass="border-emerald-400"
+            cards={overviewCards}
+            visitedCards={visitedCards}
+            onCardClick={handleCardClick}
+          />
+        ) : (
+          <>
+            {step === 0 && renderIntro()}
+            {step === 1 && renderLesson()}
+            {step === 2 && renderSummary()}
+            {step === 3 && renderPractice()}
+            {step === 4 && !quizSize && renderQuizSelect()}
+            {step === 4 && quizSize && renderQuiz()}
+            {step === 5 && renderDone()}
+          </>
+        )}
+      </div>
+      {renderQuizModal()}
+    </div>
+  );
+};
+
+// 빈칸 입력 컴포넌트 (백분율 연습용)
+const Blank = ({ value, onChange, width = '4rem', size = '1.4rem' }) => (
+  <input
+    type="text"
+    inputMode="decimal"
+    value={value || ''}
+    onChange={(e) => onChange(e.target.value)}
+    className="text-center font-display rounded-lg border-2 border-b-4 px-2 py-1 mx-1 outline-none transition-colors border-amber-300 bg-white text-stone-700 focus:border-orange-400"
+    style={{ width, fontSize: size }}
+  />
+);
+
+// ============ STAGE 3: 백분율 ============
+const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNote }) => {
+  const [step, setStep] = useState(0);
+  const [percent, setPercent] = useState(30);
+  const [lessonStep, setLessonStep] = useState(0);
+  const [methodsStep, setMethodsStep] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [qIndex, setQIndex] = useState(0);
+  const [qAnswers, setQAnswers] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [blanks, setBlanks] = useState({});
+  const setBlank = (key) => (v) => setBlanks(b => ({ ...b, [key]: v }));
+  const blank = (key) => (blanks[key] !== undefined ? blanks[key] : '');
+  const [hintMsg, setHintMsg] = useState(null);
+  const [verified, setVerified] = useState({});
+
+  const triggerCelebration = () => {
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 5000);
+  };
+
+  const fI = (n, d) => <Fraction num={n} den={d} color="#047857" size="0.95rem" />;
+  const pageChecks = {
+    disc: [
+      { key: 'discA1', ans: 30, hint: <>30%는 "100칸 중 30칸"이에요. 분자 자리에 들어갈 수를 생각해 봐요.</> },
+      { key: 'discA2', ans: 3000, hint: <>10,000 × {fI('30','100')}을 차근차근 계산해 봐요. {fI('30','100')}을 약분해서 곱해도 좋아요.</> },
+      { key: 'discB1', ans: 0.3, tol: 0.001, hint: <>30%를 소수로 바꾸려면 30 ÷ 100을 계산해 봐요. 소수점은 어디로 옮겨갈까요?</> },
+      { key: 'discB2', ans: 3000, hint: <>10,000에 0.3을 곱해 봐요. 10,000의 {fI('1','10')}은 1,000이라는 점이 도움이 될 거예요.</> },
+    ],
+    test: [
+      { key: 'testA1', ans: 80, hint: <>분모를 25에서 100으로 만들려면 어떤 수를 곱해야 할까요? 그 수를 분자에도 똑같이 곱해 봐요.</> },
+      { key: 'testA2', ans: 80, hint: <>분모가 100인 분수의 분자가 곧 백분율이에요! 위 칸에 쓴 분자를 그대로 적어 봐요.</> },
+      { key: 'testB1', ans: 0.8, tol: 0.001, hint: <>20 ÷ 25를 계산해 봐요. 분수 {fI('20','25')}를 소수로 바꾼다고 생각해도 좋아요.</> },
+      { key: 'testB2', ans: 80, hint: <>비율(소수)에 100을 곱하면 백분율이 돼요. 소수점이 두 자리 오른쪽으로 옮겨가요.</> },
+    ],
+    rain: [
+      { key: 'rainA1', ans: 45, hint: <>0.45는 소수 두 자리 수예요. 분모가 100인 분수로 한 번에 바꿀 수 있어요.</> },
+      { key: 'rainA2', ans: 45, hint: <>분모가 100인 분수의 분자가 곧 백분율이에요!</> },
+      { key: 'rainB1', ans: 45, hint: <>0.45에 100을 곱하면 어떻게 될까요? 소수점이 두 자리 오른쪽으로 옮겨가요.</> },
+    ],
+    bat: [
+      { key: 'batA1', ans: 60, hint: <>{fI('15','25')}의 분모를 100으로 만들려면 25에 어떤 수를 곱해야 할까요? 분자에도 같은 수를 곱해야 해요.</> },
+      { key: 'batA2', ans: 60, hint: <>분모가 100인 분수의 분자가 곧 백분율이에요!</> },
+      { key: 'batB1', ans: 0.6, tol: 0.001, hint: <>15 ÷ 25를 계산해 봐요. 답은 1보다 작은 소수예요.</> },
+      { key: 'batB2', ans: 60, hint: <>비율(소수)에 100을 곱하면 백분율이 돼요. 소수점이 두 자리 오른쪽으로 옮겨가요.</> },
+    ],
+  };
+
+  const verifyPage = (page) => {
+    for (const c of pageChecks[page]) {
+      const raw = blank(c.key);
+      const v = Number(raw);
+      const tol = c.tol || 0.001;
+      if (raw === '' || isNaN(v) || Math.abs(v - c.ans) > tol) {
+        setHintMsg(c.hint);
+        return;
+      }
+    }
+    setVerified(p => ({ ...p, [page]: true }));
+    triggerCelebration();
+  };
+
+  const quizPool = [
+    {
+      q: '소수 0.45를 백분율로 나타내면?',
+      hint: <>0.45를 분모가 100인 분수로 바꿔 봐요. 또는 0.45에 100을 곱해도 돼요.</>,
+      options: ['4.5%', '45%', '450%', '0.45%'],
+      answer: 1,
+    },
+    {
+      q: '🛒 2,000원짜리 음료가 15% 할인 중! 할인 금액은 얼마일까요?',
+      hint: <>2,000 × {fI('15','100')}을 계산해 봐요. 또는 15%를 소수 0.15로 바꿔서 곱해도 돼요.</>,
+      options: ['150원', '200원', '300원', '450원'],
+      answer: 2,
+    },
+    {
+      q: '한 반 학생 50명 중 22명이 안경을 써요. 안경 낀 학생의 비율은 몇 %일까요?',
+      hint: <>분수 {fI('22','50')}의 분모를 100으로 만들어 봐요. 또는 22 ÷ 50을 계산하고 100을 곱해도 돼요.</>,
+      options: ['22%', '44%', '50%', '88%'],
+      answer: 1,
+    },
+    {
+      q: '소수 0.08을 백분율로 나타내면?',
+      hint: <>0.08은 분모가 100인 분수 {fI('8','100')}과 같아요. 분자가 곧 백분율!</>,
+      options: ['0.8%', '8%', '80%', '800%'],
+      answer: 1,
+    },
+    {
+      q: <>분수 {fI('35','100')}을 백분율로 나타내면?</>,
+      hint: <>분모가 100인 분수는 분자가 곧 % 값이에요.</>,
+      options: ['0.35%', '3.5%', '35%', '350%'],
+      answer: 2,
+    },
+    {
+      q: '🛒 8,000원짜리 책이 25% 할인! 할인 금액은 얼마일까요?',
+      hint: <>8,000 × {fI('25','100')}을 계산해 봐요. {fI('25','100')}은 {fI('1','4')}과 같아요.</>,
+      options: ['1,000원', '1,500원', '2,000원', '2,500원'],
+      answer: 2,
+    },
+    {
+      q: '비율 0.6을 백분율로 나타내면?',
+      hint: <>0.6 = {fI('6','10')} = {fI('60','100')}으로 만들어 봐요. 또는 0.6 × 100.</>,
+      options: ['0.6%', '6%', '60%', '600%'],
+      answer: 2,
+    },
+    {
+      q: '20명 중 5명이 강아지를 좋아해요. 강아지를 좋아하는 비율은 몇 %일까요?',
+      hint: <>{fI('5','20')}의 분모를 100으로 만들어 봐요. 20에 어떤 수를 곱해야 100이 될까요?</>,
+      options: ['5%', '20%', '25%', '50%'],
+      answer: 2,
+    },
+    {
+      q: '소수 0.05를 백분율로 나타내면?',
+      hint: <>0.05 = {fI('5','100')}. 분자가 곧 백분율이에요.</>,
+      options: ['0.05%', '0.5%', '5%', '50%'],
+      answer: 2,
+    },
+    {
+      q: '한 반 30명 중 9명이 도서관을 좋아해요. 도서관을 좋아하는 학생의 비율은?',
+      hint: <>9 ÷ 30을 계산하거나, {fI('9','30')}의 분모를 100으로 만들어 봐요.</>,
+      options: ['9%', '20%', '30%', '40%'],
+      answer: 2,
+    },
+  ];
+
+  const [quizSize, setQuizSize] = useState(null);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [quizAttempts, setQuizAttempts] = useState({});
+  const [conceptReturn, setConceptReturn] = useState(false);
+  const [showLevelGuide, setShowLevelGuide] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [showOverview, setShowOverview] = useState(true);
+  const [visitedCards, setVisitedCards] = useState(new Set());
+
+  const overviewCards = [
+    { id: 1, icon: '📖', title: '문제 상황', step: 0 },
+    { id: 2, icon: '🔵', title: '개념 학습', step: 1 },
+    { id: 3, icon: '✨', title: '핵심 정리', step: 2 },
+    { id: 4, icon: '📝', title: '연습하기', step: 3 },
+    { id: 5, icon: '⚡', title: '빠른 연산 (퀴즈)', step: 7 },
+  ];
+
+  const handleCardClick = (card) => {
+    setVisitedCards(prev => new Set([...prev, card.id]));
+    setShowOverview(false);
+    setStep(card.step);
+  };
+
+  const goOverview = () => setShowOverview(true);
+
+  const startQuiz = (size) => {
+    const shuffled = [...quizPool].sort(() => Math.random() - 0.5).slice(0, size);
+    setSelectedQuestions(shuffled);
+    setQuizSize(size);
+    setQIndex(0);
+    setQAnswers([]);
+    setQuizAttempts({});
+    setFeedback(null);
+  };
+
+  const score = qAnswers.filter(Boolean).length;
+  const totalQ = quizSize || 3;
+  const ratio = score / totalQ;
+  const stars = ratio >= 0.95 ? 3 : ratio >= 0.6 ? 2 : ratio > 0 ? 1 : 0;
+
+  const renderIntro = () => (
+    <div className="animate-fade-up h-full flex items-center justify-center px-10 py-5 gap-6">
+      <div className="animate-bounce-soft flex-shrink-0">
+        <Squirrel size={220} mood="thinking" />
+      </div>
+      <Card className="flex-1 max-w-4xl !p-8">
+        <h2 className="font-display text-amber-900 mb-4" style={{ fontSize: '2.9rem' }}>도토리 모으기 시합 💯</h2>
+        <p className="font-body text-stone-700 leading-relaxed" style={{ fontSize: '1.6rem', lineHeight: '2.6rem' }}>
+          다람쥐와 토끼가 도토리 모으기 시합을 했어요!<br/>
+          🐿️ 다람쥐: <b className="text-orange-600">20개 중 18개</b> 모음<br/>
+          🐰 토끼: <b className="text-emerald-700">25개 중 22개</b> 모음
+        </p>
+        <div className="bg-amber-50 rounded-2xl p-6 mt-5 border-2 border-amber-200">
+          <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.7rem', lineHeight: '2.8rem' }}>
+            🤔 "누가 더 잘 모았지?"<br/>
+            전체 개수가 달라서 한눈에 비교가 어려워요.<br/>
+            <b>기준을 똑같이 100으로 맞추면</b> 어떨까요?
+          </p>
+        </div>
+        <div className="text-right mt-6">
+          <Button onClick={() => setStep(1)}>백분율 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+        </div>
+      </Card>
+    </div>
+  );
+
+  const renderLesson = () => {
+    const filled = Math.round(percent);
+    return (
+      <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
+        {lessonStep === 0 && (
+          <>
+            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>이미 배운 비율 다시 보기</h2>
+            <p className="font-body text-stone-600 text-center mb-4" style={{ fontSize: '1.45rem' }}>
+              비율은 <b className="text-orange-700">분수</b>나 <b className="text-amber-700">소수</b>로 나타냈죠?
+            </p>
+
+            <div className="flex-1 grid grid-cols-3 gap-4">
+              {[
+                { ratio: '3 : 5', num: 3, den: 5, dec: '0.6' },
+                { ratio: '1 : 4', num: 1, den: 4, dec: '0.25' },
+                { ratio: '9 : 20', num: 9, den: 20, dec: '0.45' },
+              ].map((ex, i) => (
+                <Card key={i} className="!p-5 flex flex-col items-center justify-around bg-gradient-to-br from-amber-50 to-emerald-50">
+                  <div className="text-center">
+                    <p className="font-body text-stone-600 mb-2" style={{ fontSize: '1.4rem' }}>비</p>
+                    <p className="font-display text-stone-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{ex.ratio}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-body text-stone-600" style={{ fontSize: '1.3rem' }}>분수</span>
+                    <Fraction num={String(ex.num)} den={String(ex.den)} color="#C2410C" size="2.4rem" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-body text-stone-600" style={{ fontSize: '1.3rem' }}>소수</span>
+                    <span className="font-display text-amber-700" style={{ fontSize: '2.8rem', lineHeight: '1' }}>{ex.dec}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <div className="bg-amber-100 rounded-2xl p-4 border-2 border-amber-300 mt-4">
+              <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.5rem' }}>
+                🤔 이 비율들의 <b>기준량을 똑같이 100</b>으로 바꾸면 어떻게 될까요?
+              </p>
+            </div>
+
+            <div className="text-right mt-3">
+              <Button onClick={() => setLessonStep(1)}>100으로 바꿔보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+            </div>
+          </>
+        )}
+
+        {lessonStep === 1 && (
+          <>
+            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.3rem' }}>비율을 백분율(%)로 바꿔요</h2>
+            <p className="font-body text-stone-600 text-center mb-3" style={{ fontSize: '1.3rem' }}>슬라이더를 움직여 봐요. 색칠된 칸이 곧 <b className="text-orange-700">백분율</b>이에요!</p>
+
+            {/* 위쪽: 분수 | 소수 | 백분율 (3개 가로 배치) */}
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="bg-emerald-50 rounded-2xl p-4 border-2 border-emerald-300 text-center card-shadow">
+                <p className="font-body text-emerald-700 mb-2" style={{ fontSize: '1.4rem' }}>분수 (분모 100)</p>
+                <Fraction num={percent} den="100" color="#047857" size="2.6rem" />
+              </div>
+              <div className="bg-amber-50 rounded-2xl p-4 border-2 border-amber-300 text-center card-shadow">
+                <p className="font-body text-amber-700 mb-2" style={{ fontSize: '1.4rem' }}>소수</p>
+                <p className="font-display text-amber-700" style={{ fontSize: '3rem', lineHeight: '1' }}>{(percent / 100).toFixed(2)}</p>
+              </div>
+              <div className="bg-orange-100 rounded-2xl p-4 border-2 border-orange-400 text-center card-shadow">
+                <p className="font-body text-orange-700 mb-2" style={{ fontSize: '1.4rem' }}>백분율</p>
+                <p className="font-display text-orange-700" style={{ fontSize: '3rem', lineHeight: '1' }}>{percent}%</p>
+              </div>
+            </div>
+
+            {/* 아래쪽: 100칸 그림 + 슬라이더 */}
+            <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
+              {/* 100 grid */}
+              <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 flex items-center justify-center">
+                <div className="grid grid-cols-10 gap-1 w-full aspect-square max-w-[380px]">
+                  {[...Array(100)].map((_, i) => (
+                    <div key={i}
+                      className={`aspect-square rounded transition-colors ${i < filled ? 'bg-orange-400' : 'bg-amber-100'}`} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Slider + 안내 */}
+              <div className="flex flex-col gap-4 justify-center">
+                <div className="bg-white rounded-2xl p-5 border-2 border-orange-200 card-shadow">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-display text-orange-700" style={{ fontSize: '1.5rem' }}>슬라이더로 조절</span>
+                    <span className="font-display text-orange-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{percent}%</span>
+                  </div>
+                  <input type="range" min="0" max="100" value={percent} onChange={(e) => setPercent(+e.target.value)}
+                    className="w-full h-3" />
+                </div>
+
+                <div className="bg-amber-100 rounded-2xl p-4 border-2 border-amber-300">
+                  <p className="font-display text-amber-900 text-center" style={{ fontSize: '1.4rem' }}>
+                    💡 기준량을 <b>100</b>으로 만든 비율
+                  </p>
+                  <p className="font-display text-amber-900 text-center mt-1" style={{ fontSize: '1.4rem' }}>
+                    = <b className="text-orange-700">백분율 (퍼센트, %)</b>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-3">
+              <Button onClick={() => setLessonStep(0)} variant="soft">← 이전</Button>
+              <Button onClick={() => setStep(2)}>두 가지 방법 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderMethods = () => (
+    <div className="animate-fade-up h-full flex flex-col px-10 py-4">
+      <h2 className="font-display text-3xl text-amber-900 text-center mb-1">✨ 핵심 정리 — 백분율로 바꾸는 두 가지 방법</h2>
+      <p className="font-body text-stone-600 text-center text-xl mb-3">
+        비율을 백분율(%)로 바꾸는 방법 ({methodsStep + 1}/2)
+      </p>
+
+      {methodsStep === 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-emerald-50 rounded-2xl p-8 border-2 border-emerald-300 card-shadow w-full max-w-4xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-emerald-200 rounded-full w-16 h-16 flex items-center justify-center">
+                <span className="font-display text-emerald-900 text-3xl">①</span>
+              </div>
+              <p className="font-display text-emerald-800 text-3xl">분모가 100인 분수로!</p>
+            </div>
+            <p className="font-body text-stone-700 text-xl mb-5">
+              비율을 <b>분모가 100인 분수</b>로 바꾸면, <b className="text-orange-700">분자가 그대로 백분율</b>이 돼요.
+            </p>
+            <div className="bg-white rounded-2xl p-5 border-2 border-emerald-200 mb-3">
+              <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-2 text-stone-700 text-2xl">
+                <span>0.6 =</span>
+                <Fraction num="6" den="10" color="#047857" size="2rem" />
+                <span>=</span>
+                <Fraction num="60" den="100" color="#047857" size="2rem" />
+                <span>→</span>
+                <span className="font-bold text-orange-700 text-4xl">60%</span>
+              </div>
+            </div>
+            <p className="font-body text-emerald-700 text-lg text-center">💡 분자가 곧 백분율!</p>
+          </div>
+        </div>
+      )}
+
+      {methodsStep === 1 && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-orange-50 rounded-2xl p-8 border-2 border-orange-300 card-shadow w-full max-w-4xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-orange-200 rounded-full w-16 h-16 flex items-center justify-center">
+                <span className="font-display text-orange-900 text-3xl">②</span>
+              </div>
+              <p className="font-display text-orange-800 text-3xl">비율에 100을 곱해요!</p>
+            </div>
+            <p className="font-body text-stone-700 text-xl mb-5">
+              비율(소수)을 그대로 <b>100배</b> 하면 빠르게 백분율이 돼요.
+            </p>
+            <div className="bg-white rounded-2xl p-5 border-2 border-orange-200 mb-3">
+              <div className="flex items-center justify-center text-stone-700 text-3xl">
+                <span>0.6 × 100 =</span>
+                <span className="font-bold text-orange-700 text-5xl ml-3">60%</span>
+              </div>
+            </div>
+            <p className="font-body text-orange-700 text-lg text-center">💡 빠르고 간단한 방법!</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mt-3">
+        {methodsStep > 0 ? (
+          <Button onClick={() => setMethodsStep(methodsStep - 1)} variant="soft">← 이전</Button>
+        ) : <div></div>}
+        {methodsStep < 1 ? (
+          <Button onClick={() => setMethodsStep(methodsStep + 1)}>다음 방법 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+        ) : (
+          <Button onClick={() => setStep(3)}>실생활 연습 <ArrowRight size={22} className="inline ml-1" /></Button>
+        )}
+      </div>
+    </div>
+  );
+
+  const fracBlank = (blankKey, denom = '100') => (
+    <span className="inline-flex flex-col items-center mx-1">
+      <Blank value={blank(blankKey)} onChange={setBlank(blankKey)} width="5rem" size="1.5rem" />
+      <span style={{ borderBottom: '3px solid #047857', width: '4.2em', margin: '0.2em 0' }}></span>
+      <span className="font-display leading-none" style={{ color: '#047857', fontSize: '1.7rem' }}>{denom}</span>
+    </span>
+  );
+
+  const renderRealLife = ({ pageKey, idx, emoji, problemColor, problem, methodA, methodB, prevStep, nextStep, nextLabel }) => {
+    const done = !!verified[pageKey];
+    return (
+      <div className="animate-fade-up h-full flex flex-col px-6 py-3">
+        {/* 상단: 다람쥐 + 문제 */}
+        <div className="flex items-center justify-center gap-4 mb-3">
+          <div className="flex-shrink-0">
+            <div className={done ? 'animate-bounce-soft' : ''}>
+              <Squirrel size={100} mood={done ? 'happy' : 'normal'} />
+            </div>
+          </div>
+          <div className="flex-1 max-w-4xl">
+            <h2 className="font-display text-amber-900 mb-2" style={{ fontSize: '2rem' }}>{emoji} 실생활 문제 ({idx}/4)</h2>
+            <div className={`bg-${problemColor}-50 rounded-xl p-4 border-2 border-${problemColor}-300`}>
+              <p className="font-body text-stone-800" style={{ fontSize: '1.55rem', lineHeight: '2.2rem' }}>📌 {problem}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 풀이 두 칸 */}
+        <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+          <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-300 flex flex-col">
+            <p className="font-display text-emerald-800 mb-4 text-center" style={{ fontSize: '1.7rem' }}>방법 ① {methodA.title}</p>
+            <div className="space-y-3 flex-1">{methodA.body}</div>
+          </div>
+          <div className="bg-orange-50 rounded-2xl p-5 border-2 border-orange-300 flex flex-col">
+            <p className="font-display text-orange-800 mb-4 text-center" style={{ fontSize: '1.7rem' }}>방법 ② {methodB.title}</p>
+            <div className="space-y-3 flex-1">{methodB.body}</div>
+          </div>
+        </div>
+
+        {done && (
+          <div className="bg-gradient-to-r from-emerald-100 via-amber-100 to-orange-100 rounded-xl p-3 border-2 border-emerald-400 mt-3 text-center animate-pop-in">
+            <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem' }}>🎉 두 방법 모두 정답이에요! 완벽해요! ✨</p>
+          </div>
+        )}
+
+        <div className="flex justify-between mt-3">
+          <Button onClick={() => setStep(prevStep)} variant="soft">← 이전</Button>
+          {done ? (
+            <Button onClick={() => setStep(nextStep)}>{nextLabel} <ArrowRight size={20} className="inline ml-1" /></Button>
+          ) : (
+            <Button onClick={() => verifyPage(pageKey)}>정답 확인 ✨</Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDiscount = () => renderRealLife({
+    pageKey: 'disc',
+    idx: 1,
+    emoji: '🛒',
+    problemColor: 'orange',
+    problem: <>10,000원짜리 옷이 <b>30% 할인</b> 중이에요. 할인 금액은 얼마일까요?</>,
+    methodA: {
+      title: '분수로 풀기',
+      body: <>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">30% =</span>
+          {fracBlank('discA1')}
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">10,000 ×</span>
+          <Fraction num="30" den="100" color="#047857" size="1.7rem" />
+          <span className="font-bold">=</span>
+          <Blank value={blank('discA2')} onChange={setBlank('discA2')} width="5.5rem" size="1.5rem" />
+          <span className="font-bold">원</span>
+        </div>
+      </>,
+    },
+    methodB: {
+      title: '소수로 풀기',
+      body: <>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">30% =</span>
+          <Blank value={blank('discB1')} onChange={setBlank('discB1')} width="5rem" size="1.5rem" />
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">10,000 × 0.3 =</span>
+          <Blank value={blank('discB2')} onChange={setBlank('discB2')} width="5.5rem" size="1.5rem" />
+          <span className="font-bold">원</span>
+        </div>
+      </>,
+    },
+    prevStep: 2, nextStep: 4, nextLabel: '다음',
+  });
+
+  const renderTest = () => renderRealLife({
+    pageKey: 'test',
+    idx: 2,
+    emoji: '📝',
+    problemColor: 'emerald',
+    problem: <>25문제 중 <b>20문제</b>를 맞혔어요. 정답률은 몇 %일까요?</>,
+    methodA: {
+      title: '분수로 풀기',
+      body: <>
+        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>분모를 100으로 만들면 분자가 곧 %예요.</p>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <Fraction num="20" den="25" color="#047857" size="1.7rem" />
+          <span>=</span>
+          {fracBlank('testA1')}
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">→ 정답률 =</span>
+          <Blank value={blank('testA2')} onChange={setBlank('testA2')} width="5rem" size="1.5rem" />
+          <span className="font-bold">%</span>
+        </div>
+      </>,
+    },
+    methodB: {
+      title: '소수로 풀기',
+      body: <>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">20 ÷ 25 =</span>
+          <Blank value={blank('testB1')} onChange={setBlank('testB1')} width="5rem" size="1.5rem" />
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">0.8 × 100 =</span>
+          <Blank value={blank('testB2')} onChange={setBlank('testB2')} width="5rem" size="1.5rem" />
+          <span className="font-bold">%</span>
+        </div>
+      </>,
+    },
+    prevStep: 3, nextStep: 5, nextLabel: '다음',
+  });
+
+  const renderRain = () => renderRealLife({
+    pageKey: 'rain',
+    idx: 3,
+    emoji: '☔',
+    problemColor: 'sky',
+    problem: <>일기예보에서 비 올 확률이 <b>0.45</b>라고 해요. 백분율로 나타내면 몇 %일까요?</>,
+    methodA: {
+      title: '분수로 풀기',
+      body: <>
+        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>소수 두 자리는 분모 100인 분수로 한 번에!</p>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">0.45 =</span>
+          {fracBlank('rainA1')}
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">→ 비 올 확률 =</span>
+          <Blank value={blank('rainA2')} onChange={setBlank('rainA2')} width="5rem" size="1.5rem" />
+          <span className="font-bold">%</span>
+        </div>
+      </>,
+    },
+    methodB: {
+      title: '소수로 풀기',
+      body: <>
+        <p className="font-body text-orange-700 text-xs text-center">소수점이 두 자리 옮겨가요.</p>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">0.45 × 100 =</span>
+          <Blank value={blank('rainB1')} onChange={setBlank('rainB1')} width="5rem" size="1.5rem" />
+          <span className="font-bold">%</span>
+        </div>
+      </>,
+    },
+    prevStep: 4, nextStep: 6, nextLabel: '다음',
+  });
+
+  const renderBattery = () => renderRealLife({
+    pageKey: 'bat',
+    idx: 4,
+    emoji: '🔋',
+    problemColor: 'purple',
+    problem: <>25칸짜리 배터리에 <b>15칸</b>이 남아 있어요. 배터리 잔량은 몇 %일까요?</>,
+    methodA: {
+      title: '분수로 풀기',
+      body: <>
+        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>남은 양 / 전체를 분모 100인 분수로!</p>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <Fraction num="15" den="25" color="#047857" size="1.7rem" />
+          <span>=</span>
+          {fracBlank('batA1')}
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">→ 배터리 잔량 =</span>
+          <Blank value={blank('batA2')} onChange={setBlank('batA2')} width="5rem" size="1.5rem" />
+          <span className="font-bold">%</span>
+        </div>
+      </>,
+    },
+    methodB: {
+      title: '소수로 풀기',
+      body: <>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">15 ÷ 25 =</span>
+          <Blank value={blank('batB1')} onChange={setBlank('batB1')} width="5rem" size="1.5rem" />
+        </div>
+        <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
+          <span className="font-bold">0.6 × 100 =</span>
+          <Blank value={blank('batB2')} onChange={setBlank('batB2')} width="5rem" size="1.5rem" />
+          <span className="font-bold">%</span>
+        </div>
+      </>,
+    },
+    prevStep: 5, nextStep: 7, nextLabel: '퀴즈 풀러 가기',
+  });
+
+  const renderQuizSelect = () => (
+    <div className="animate-fade-up h-full flex flex-col items-center justify-center px-12 gap-5">
+      <div className="animate-bounce-soft mb-1"><Squirrel size={150} mood="happy" /></div>
+      <h2 className="font-display text-5xl text-amber-900 leading-none">몇 문제 풀어볼까요?</h2>
+      <p className="font-body text-stone-700 text-2xl">원하는 문제 수를 골라봐요!</p>
+      <div className="flex gap-6 mt-3">
+        {[
+          { n: 3, color: 'bg-emerald-400 hover:bg-emerald-500 border-emerald-600', label: '쉬움' },
+          { n: 5, color: 'bg-orange-400 hover:bg-orange-500 border-orange-600', label: '보통' },
+          { n: 10, color: 'bg-rose-400 hover:bg-rose-500 border-rose-600', label: '도전!' },
+        ].map(({ n, color, label }) => (
+          <button key={n} onClick={() => startQuiz(n)}
+            className={`${color} text-white rounded-3xl border-b-8 btn-shadow px-12 py-7 flex flex-col items-center gap-1`}>
+            <span className="font-display leading-none" style={{ fontSize: '5rem' }}>{n}</span>
+            <span className="font-display text-3xl">문제</span>
+            <span className="font-body text-xl opacity-90">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderQuiz = () => {
+    const q = selectedQuestions[qIndex];
+    if (!q) return null;
+    const handleAnswer = (i) => {
+      const correct = i === q.answer;
+      setFeedback({ correct, picked: i });
+      if (correct) {
+        if (onCorrect) onCorrect();
+        triggerCelebration();
+        setTimeout(() => {
+          const newAnswers = [...qAnswers, correct];
+          setQAnswers(newAnswers);
+          setFeedback(null);
+          if (qIndex + 1 < selectedQuestions.length) {
+            setQIndex(qIndex + 1);
+          } else {
+            const total = selectedQuestions.length;
+            const correctCount = newAnswers.filter(Boolean).length;
+            const r = correctCount / total;
+            const finalStars = r >= 0.95 ? 3 : r >= 0.6 ? 2 : r > 0 ? 1 : 0;
+            onComplete(finalStars);
+            setStep(8);
+          }
+        }, 1800);
+      } else {
+        const attempts = (quizAttempts[qIndex] || 0) + 1;
+        setQuizAttempts(p => ({ ...p, [qIndex]: attempts }));
+        setTimeout(() => {
+          setFeedback(null);
+          if (attempts >= 2) {
+            setConceptReturn(true);
+          } else {
+            setHintMsg(q.hint);
+          }
+        }, 1200);
+      }
+    };
+
+    return (
+      <div className="animate-fade-up h-full flex items-center justify-center px-16">
+        <Card className="w-full max-w-4xl">
+          <div className="flex justify-between items-center mb-5">
+            <span className="font-display text-amber-700 text-lg">문제 {qIndex + 1} / {selectedQuestions.length}</span>
+            <div className="flex gap-1.5 flex-wrap max-w-xs justify-end">
+              {[...Array(selectedQuestions.length)].map((_, i) => (
+                <div key={i} className={`w-4 h-4 rounded-full ${i < qIndex ? 'bg-emerald-400' : i === qIndex ? 'bg-orange-400' : 'bg-amber-200'}`} />
+              ))}
+            </div>
+          </div>
+          <p className="font-body text-stone-800 text-2xl mb-5 leading-relaxed">{q.q}</p>
+          <div className="grid grid-cols-4 gap-3">
+            {q.options.map((opt, i) => {
+              const isPicked = feedback?.picked === i;
+              const isCorrect = i === q.answer;
+              let style = 'bg-white hover:bg-amber-50 border-amber-200 text-stone-800';
+              if (feedback) {
+                if (isPicked && isCorrect) style = 'bg-emerald-100 border-emerald-400 text-emerald-900';
+                else if (isPicked && !isCorrect) style = 'bg-red-100 border-red-400 text-red-900 animate-shake';
+                else style = 'bg-white border-amber-200 text-stone-500 opacity-60';
+              }
+              return (
+                <button key={i} onClick={() => !feedback && handleAnswer(i)} disabled={!!feedback}
+                  className={`font-display text-2xl px-4 py-5 rounded-2xl border-2 border-b-4 transition-all ${style}`}>
+                  {opt}
+                  {feedback && isPicked && (<span className="ml-2">{isCorrect ? '✓' : '✗'}</span>)}
+                </button>
+              );
+            })}
+          </div>
+          {feedback && feedback.correct && (
+            <div className="mt-5 p-4 rounded-2xl text-center font-body text-lg animate-pop-in bg-emerald-100 text-emerald-900">
+              🎉 정답이에요!
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  };
+
+  const renderDone = () => {
+    const r = rewards || { totalCorrect: 0, items: [], badges: [] };
+    const earnedItems = r.items || [];
+    const earnedBadges = r.badges || [];
+    const totalCorrect = r.totalCorrect || 0;
+    const totalQ = selectedQuestions.length || 3;
+
+    return (
+      <div className="animate-fade-up h-full flex items-center justify-center px-8 py-4 gap-6">
+        <div className="flex flex-col items-center justify-center flex-shrink-0 gap-3">
+          <div className="animate-bounce-soft"><Squirrel size={200} mood="happy" /></div>
+          <div className="flex justify-center"><StarRow count={stars} size={48} /></div>
+          <div className="bg-white rounded-xl px-4 py-2 border-2 border-amber-200 text-center">
+            <p className="font-display text-amber-900 text-lg">{score} / {totalQ} 정답</p>
+          </div>
+        </div>
+
+        <div className="flex-1 max-w-2xl flex flex-col gap-3">
+          <Card className="!p-5 text-center">
+            <h2 className="font-display text-3xl text-amber-900">🏆 백분율 마을 클리어!</h2>
+            <p className="font-body text-stone-600 text-base mt-1">백분율의 모든 단계를 잘 풀어냈어요!</p>
+          </Card>
+
+          <Card className="!p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-display text-amber-900 text-lg">🎁 내 보물</p>
+              <span className="font-body text-stone-500 text-xs">정답 {totalCorrect}개 · 메달 {earnedBadges.length}개</span>
+            </div>
+            {(earnedBadges.length > 0 || earnedItems.length > 0) ? (
+              <div className="flex flex-wrap gap-2">
+                {earnedBadges.map(b => (
+                  <div key={b.id} className="bg-rose-50 rounded-xl px-3 py-1.5 border-2 border-rose-200 flex items-center gap-1.5">
+                    <span className="text-2xl">{b.icon}</span>
+                    <span className="font-display text-rose-800 text-base">{b.name}</span>
+                  </div>
+                ))}
+                {earnedItems.map(it => (
+                  <div key={it.id} className="bg-emerald-50 rounded-xl px-3 py-1.5 border-2 border-emerald-200 flex items-center gap-1.5">
+                    <span className="text-2xl">{it.icon}</span>
+                    <span className="font-display text-emerald-800 text-base">{it.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="font-body text-stone-500 text-base">아직 보물이 없어요. 더 많이 풀어봐요!</p>
+            )}
+          </Card>
+
+          <div className="flex justify-between items-center">
+            <Button onClick={() => setShowLevelGuide(true)} variant="soft">📊 레벨 안내</Button>
+            <Button onClick={() => setShowCompletion(true)}>다음 <ArrowRight size={20} className="inline ml-1" /></Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full h-full app-bg relative flex flex-col overflow-hidden">
+      {showConfetti && <Confetti />}
+      {hintMsg && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-6" onClick={() => setHintMsg(null)}>
+          <div className="bg-white rounded-3xl p-6 max-w-md card-shadow border-4 border-amber-300 animate-pop-in text-center" onClick={e => e.stopPropagation()}>
+            <div className="inline-block mb-2"><Squirrel size={90} mood="thinking" /></div>
+            <p className="font-display text-amber-900 text-2xl mb-2">💡 힌트</p>
+            <p className="font-body text-stone-700 text-base leading-relaxed">{hintMsg}</p>
+            <div className="mt-4 flex justify-center">
+              <Button onClick={() => setHintMsg(null)}>다시 풀어볼게요!</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {conceptReturn && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6">
+          <div className="bg-white rounded-3xl p-6 max-w-md card-shadow border-4 border-orange-400 animate-pop-in text-center">
+            <div className="inline-block mb-2"><Squirrel size={100} mood="thinking" /></div>
+            <p className="font-display text-orange-700 text-2xl mb-2">📚 개념을 다시 공부해요!</p>
+            <p className="font-body text-stone-700 text-base leading-relaxed">
+              두 번 틀렸어요. 백분율로 바꾸는 두 가지 방법을 다시 한번 살펴보고 와요!
+            </p>
+            <div className="mt-4 flex justify-center">
+              <Button onClick={() => {
+                setConceptReturn(false);
+                setQuizAttempts(p => ({ ...p, [qIndex]: 0 }));
+                setStep(2);
+              }}>학습 페이지로 가기</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showLevelGuide && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-6" onClick={() => setShowLevelGuide(false)}>
+          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full card-shadow border-4 border-amber-300 animate-pop-in text-center" onClick={e => e.stopPropagation()}>
+            <p className="font-display text-amber-900 text-2xl mb-1">📊 레벨 안내</p>
+            <p className="font-body text-stone-600 text-sm mb-4">정답을 모으면 다음과 같은 보상을 받을 수 있어요!</p>
+            <div className="grid grid-cols-2 gap-2">
+              {MILESTONES.map(m => {
+                const reached = (rewards?.totalCorrect || 0) >= m.count;
+                return (
+                  <div key={m.id} className={`rounded-xl px-3 py-2 border-2 flex items-center gap-2 ${reached ? 'bg-emerald-50 border-emerald-300' : 'bg-stone-50 border-stone-200 opacity-70'}`}>
+                    <span className="text-2xl">{m.icon}</span>
+                    <div>
+                      <p className={`font-display text-base ${reached ? 'text-emerald-800' : 'text-stone-500'}`}>{m.name}</p>
+                      <p className="font-body text-stone-500 text-xs">{m.count}문제 정답</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="font-body text-amber-700 text-sm mt-3 text-center">
+              현재 정답 수: <b>{rewards?.totalCorrect || 0}</b>개
+            </p>
+            <div className="mt-4 flex justify-center">
+              <Button onClick={() => setShowLevelGuide(false)} variant="soft">닫기</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCompletion && (() => {
+        const allDone = progress && (progress.s1 || 0) > 0 && (progress.s2 || 0) > 0 && (progress.s3 || 0) > 0;
+        return (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+            <div className="bg-gradient-to-br from-amber-50 via-white to-orange-50 rounded-3xl p-8 max-w-xl w-full card-shadow border-4 border-amber-400 animate-pop-in text-center">
+              <div className="animate-bounce-soft inline-block mb-2"><Squirrel size={150} mood="happy" /></div>
+              <h2 className="font-display text-amber-900 text-3xl mb-1">🎉 학습 완료!</h2>
+              <p className="font-body text-stone-700 text-lg mb-3">백분율 마을 학습을 모두 마쳤어요!</p>
+              <div className="flex justify-center mb-4"><StarRow count={stars} size={44} /></div>
+
+              {allDone && onDownloadNote ? (
+                <div className="bg-amber-100 rounded-2xl p-4 border-2 border-amber-300 mb-4">
+                  <p className="font-display text-amber-900 text-lg mb-1">📜 탐험 노트 받기</p>
+                  <p className="font-body text-stone-700 text-sm mb-3">세 단계를 모두 마쳤어요! 노트를 받아서 간직해 보세요.</p>
+                  <Button onClick={onDownloadNote}>탐험 노트 받기</Button>
+                </div>
+              ) : (
+                <p className="font-body text-stone-600 text-sm mb-4">
+                  💡 세 단계(비의 숲 · 비율의 언덕 · 백분율 마을)를 모두 마치면 탐험 노트를 받을 수 있어요!
+                </p>
+              )}
+
+              <div className="flex justify-center">
+                <Button onClick={() => { setShowCompletion(false); onHome(); }}>🗺️ 지도로 가기</Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      <TopBar
+        onHome={onHome}
+        onBack={!showOverview ? goOverview : null}
+        title="💯 백분율 마을"
+        progress={showOverview ? '목차' : `${Math.min(step + 1, 9)}/9`}
+      />
+      <div className="flex-1 overflow-hidden">
+        {showOverview ? (
+          <StageOverview
+            stageNumber="3"
+            stageBadge="💯 백분율"
+            stageTitle="백분율 마을"
+            stageGoal="백분율의 의미와 구하는 방법을 알아봐요"
+            accentClass="border-amber-400"
+            cards={overviewCards}
+            visitedCards={visitedCards}
+            onCardClick={handleCardClick}
+          />
+        ) : (
+          <>
+            {step === 0 && renderIntro()}
+            {step === 1 && renderLesson()}
+            {step === 2 && renderMethods()}
+            {step === 3 && renderDiscount()}
+            {step === 4 && renderTest()}
+            {step === 5 && renderRain()}
+            {step === 6 && renderBattery()}
+            {step === 7 && !quizSize && renderQuizSelect()}
+            {step === 7 && quizSize && renderQuiz()}
+            {step === 8 && renderDone()}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============ ROTATE HINT ============
+const RotateHint = () => (
+  <div className="fixed inset-0 outer-bg flex items-center justify-center p-8">
+    <div className="bg-white rounded-3xl p-8 card-shadow border-2 border-amber-200 text-center max-w-xs">
+      <div className="text-7xl mb-4 animate-wiggle">📱</div>
+      <p className="font-display text-amber-900 text-2xl mb-2" style={{ fontFamily: "'Jua', sans-serif" }}>
+        기기를 돌려주세요!
+      </p>
+      <p className="font-body text-stone-600 text-base" style={{ fontFamily: "'Gowun Dodum', sans-serif" }}>
+        가로 모드에서 가장 잘 보여요 🐿️
+      </p>
+    </div>
+  </div>
+);
+
+// ============ MAIN APP ============
+function App() {
+  const [screen, setScreen] = useState('home');
+  const [progress, setProgress] = useState({ s1: 0, s2: 0, s3: 0 });
+  const [rewards, setRewards] = useState({ totalCorrect: 0, items: [], badges: [] });
+  const [pendingRewards, setPendingRewards] = useState([]);
+  const [studentName, setStudentName] = useState(null);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const { scale, needsRotate } = useScale();
+
+  // Load on mount
+  useEffect(() => {
+    try {
+      const storedName = localStorage.getItem('squirrel-ratio-name');
+      if (storedName) setStudentName(storedName);
+      else setShowNameModal(true);
+    } catch (e) { setShowNameModal(true); }
+
+    try {
+      const raw = localStorage.getItem('squirrel-ratio-data');
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data.progress) setProgress(data.progress);
+        if (data.rewards) setRewards(data.rewards);
+      }
+    } catch (e) {}
+  }, []);
+
+  // Save on changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('squirrel-ratio-data', JSON.stringify({ progress, rewards }));
+    } catch (e) {}
+  }, [progress, rewards]);
+
+  // Post activity to teacher's sheet (uses GET to avoid CORS preflight)
+  const postEvent = (name, event, extra) => {
+    if (!SCRIPT_URL || !name) return;
+    try {
+      const params = new URLSearchParams(Object.assign({ action: 'log', name: name, event: event }, extra || {}));
+      fetch(SCRIPT_URL + '?' + params.toString(), { method: 'GET', mode: 'no-cors' });
+    } catch (e) {}
+  };
+
+  const handleNameSelect = (name) => {
+    setStudentName(name);
+    setShowNameModal(false);
+    try { localStorage.setItem('squirrel-ratio-name', name); } catch (e) {}
+    postEvent(name, 'login');
+  };
+
+  const changeName = () => {
+    setStudentName(null);
+    try { localStorage.removeItem('squirrel-ratio-name'); } catch (e) {}
+    setShowNameModal(true);
+  };
+
+  const updateProgress = (key, stars) => {
+    const wasZero = (progress[key] || 0) === 0;
+    const newProgress = { ...progress, [key]: Math.max(progress[key] || 0, stars) };
+    setProgress(newProgress);
+    postEvent(studentName, 'stage_complete', { stage: key, stars: String(stars) });
+
+    if (wasZero && stars > 0) {
+      const stageBadge = STAGE_BADGES[key];
+      const alreadyHas = rewards.badges.find(b => b.id === stageBadge.id);
+      if (!alreadyHas) {
+        const newBadges = [...rewards.badges, stageBadge];
+        const queue = [stageBadge];
+        postEvent(studentName, 'badge', { detail: stageBadge.name });
+        const allDone = (newProgress.s1 || 0) > 0 && (newProgress.s2 || 0) > 0 && (newProgress.s3 || 0) > 0;
+        if (allDone && !newBadges.find(b => b.id === STAGE_BADGES.all3.id)) {
+          newBadges.push(STAGE_BADGES.all3);
+          queue.push(STAGE_BADGES.all3);
+          postEvent(studentName, 'badge', { detail: STAGE_BADGES.all3.name });
+        }
+        setRewards(r => ({ ...r, badges: newBadges }));
+        setPendingRewards(prev => [...prev, ...queue]);
+      }
+    }
+  };
+
+  const handleCorrect = () => {
+    postEvent(studentName, 'correct');
+    setRewards(r => {
+      const newTotal = (r.totalCorrect || 0) + 1;
+      let newItems = r.items || [];
+      const milestone = MILESTONES.find(m => m.count === newTotal && !newItems.find(it => it.id === m.id));
+      if (milestone) {
+        newItems = [...newItems, milestone];
+        setPendingRewards(prev => [...prev, milestone]);
+        postEvent(studentName, 'milestone', { detail: milestone.name });
+      }
+      return { ...r, totalCorrect: newTotal, items: newItems };
+    });
+  };
+
+  const resetProgress = () => {
+    setProgress({ s1: 0, s2: 0, s3: 0 });
+    setRewards({ totalCorrect: 0, items: [], badges: [] });
+    setPendingRewards([]);
+    try { localStorage.removeItem('squirrel-ratio-data'); } catch (e) {}
+  };
+
+  const dismissReward = () => setPendingRewards(prev => prev.slice(1));
+
+  const downloadNote = () => {
+    if (!studentName) return;
+    const dateStr = new Date().toLocaleDateString('ko-KR');
+    const stars1 = progress.s1 || 0, stars2 = progress.s2 || 0, stars3 = progress.s3 || 0;
+    const totalStars = stars1 + stars2 + stars3;
+    const totalCorrect = (rewards && rewards.totalCorrect) || 0;
+    const starHtml = (n) => '⭐'.repeat(n) + '☆'.repeat(3 - n);
+    const itemsHtml = ((rewards && rewards.items) || []).map(it =>
+      '<span class="reward-item">' + it.icon + ' ' + it.name + '</span>'
+    ).join(' ');
+    const badgesHtml = ((rewards && rewards.badges) || []).map(b =>
+      '<span class="reward-badge">' + b.icon + ' ' + b.name + '</span>'
+    ).join(' ');
+
+    const html = '<!DOCTYPE html>\n<html lang="ko"><head><meta charset="UTF-8"><title>' + studentName + '의 비율 탐험 노트</title>\n<style>\n@import url(\'https://fonts.googleapis.com/css2?family=Jua&display=swap\');\n* { box-sizing: border-box; margin: 0; padding: 0; font-family: \'Jua\', sans-serif; }\nbody { background: #FFF6E5; color: #2D1810; padding: 40px 20px; line-height: 1.6; }\n.page { max-width: 760px; margin: 0 auto; background: white; padding: 40px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); border: 4px solid #F4B942; }\nh1 { color: #92400E; font-size: 42px; text-align: center; margin-bottom: 8px; }\nh2 { color: #B45309; font-size: 28px; margin: 24px 0 12px; padding-bottom: 4px; border-bottom: 3px solid #FCD34D; }\nh3 { color: #C2410C; font-size: 22px; margin: 14px 0 6px; }\n.subtitle { text-align: center; color: #78716C; font-size: 18px; margin-bottom: 20px; }\n.banner { background: linear-gradient(135deg, #FED7AA, #FCD34D); padding: 16px 24px; border-radius: 16px; margin: 16px 0; text-align: center; font-size: 22px; }\n.stage-card { background: #FFF7ED; padding: 14px 20px; border-radius: 12px; margin: 10px 0; border: 2px solid #FED7AA; display: flex; justify-content: space-between; align-items: center; }\n.stage-name { font-size: 22px; color: #9A3412; }\n.stars { font-size: 24px; }\n.rewards { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }\n.reward-item, .reward-badge { background: #ECFDF5; padding: 8px 14px; border-radius: 999px; border: 2px solid #6EE7B7; font-size: 18px; }\n.reward-badge { background: #FEF2F2; border-color: #FCA5A5; }\n.concept { background: #FEF3C7; padding: 16px 20px; border-radius: 12px; margin: 12px 0; border-left: 6px solid #F59E0B; }\n.concept p { font-size: 18px; margin: 6px 0; }\n.example { color: #C2410C; font-weight: bold; }\n.print-btn { display: block; margin: 30px auto 0; padding: 14px 32px; background: #F59E0B; color: white; border: none; border-radius: 16px; font-size: 22px; cursor: pointer; font-family: inherit; }\n.print-btn:hover { background: #D97706; }\n@media print { body { background: white; padding: 0; } .page { box-shadow: none; border: none; } .print-btn { display: none; } }\n</style></head><body>\n<div class="page">\n  <h1>📜 비율 탐험 노트</h1>\n  <p class="subtitle">탐험가 <strong>' + studentName + '</strong> | 완료일 ' + dateStr + '</p>\n  <div class="banner">🎉 <strong>모든 단계 클리어!</strong> 🎉<br>모은 별 ' + totalStars + '개 / 정답 ' + totalCorrect + '개</div>\n  <h2>🏆 클리어 현황</h2>\n  <div class="stage-card"><span class="stage-name">🌰 비의 숲</span><span class="stars">' + starHtml(stars1) + '</span></div>\n  <div class="stage-card"><span class="stage-name">📊 비율의 언덕</span><span class="stars">' + starHtml(stars2) + '</span></div>\n  <div class="stage-card"><span class="stage-name">💯 백분율 마을</span><span class="stars">' + starHtml(stars3) + '</span></div>\n  ' + (badgesHtml || itemsHtml ? '<h2>🎁 모은 보물</h2><div class="rewards">' + badgesHtml + ' ' + itemsHtml + '</div>' : '') + '\n  <h2>📖 오늘 배운 것</h2>\n  <div class="concept"><h3>🌰 비 (比)</h3>\n    <p>두 양을 비교할 때 기호 ":" 를 써서 나타낸 것</p>\n    <p><span class="example">예) 3 : 5</span> — "삼 대 오" 또는 "3과 5의 비" 라고 읽어요</p>\n    <p>":" 앞이 비교하는 양, 뒤가 기준량</p></div>\n  <div class="concept"><h3>📊 비율</h3>\n    <p>기준량에 대한 비교하는 양의 크기</p>\n    <p><span class="example">비율 = 비교하는 양 ÷ 기준량</span></p>\n    <p>예) 3 : 5 의 비율 → 3 ÷ 5 = 0.6 (또는 분수 3/5)</p>\n    <p>분수와 소수로 모두 나타낼 수 있어요</p></div>\n  <div class="concept"><h3>💯 백분율 (%)</h3>\n    <p>기준량을 <span class="example">100</span>으로 했을 때의 비율</p>\n    <p><span class="example">소수 × 100 = 백분율</span> &nbsp;예) 0.6 → 60%</p>\n    <p>같은 비율을 비, 분수, 소수, 백분율로 모두 표현할 수 있어요</p></div>\n  <button class="print-btn" onclick="window.print()">🖨️ 인쇄하기</button>\n</div></body></html>';
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = studentName + '_비율탐험노트_' + new Date().toISOString().slice(0, 10) + '.html';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    postEvent(studentName, 'download_note');
+  };
+
+  return (
+    <>
+      <style>{themeStyles}</style>
+      {needsRotate ? <RotateHint /> : (
+        <div className="fixed inset-0 outer-bg overflow-hidden">
+          <div
+            style={{
+              width: CANVAS_W,
+              height: CANVAS_H,
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: `translate(-50%, -50%) scale(${scale})`,
+              transformOrigin: 'center center',
+              borderRadius: scale < 0.98 ? 24 : 0,
+              overflow: 'hidden',
+              boxShadow: scale < 0.98 ? '0 20px 60px rgba(74, 44, 31, 0.25)' : 'none',
+            }}
+          >
+            {screen === 'home' && (
+              <HomeScreen progress={progress} rewards={rewards} studentName={studentName}
+                onNavigate={setScreen} onReset={resetProgress}
+                onDownloadNote={downloadNote} onChangeName={changeName} />
+            )}
+            {screen === 's1' && (
+              <Stage1 onHome={() => setScreen('home')}
+                onComplete={(stars) => updateProgress('s1', stars)}
+                onCorrect={handleCorrect} />
+            )}
+            {screen === 's2' && (
+              <Stage2 onHome={() => setScreen('home')}
+                onComplete={(stars) => updateProgress('s2', stars)}
+                onCorrect={handleCorrect} />
+            )}
+            {screen === 's3' && (
+              <Stage3 onHome={() => setScreen('home')}
+                onComplete={(stars) => updateProgress('s3', stars)}
+                onCorrect={handleCorrect}
+                rewards={rewards} progress={progress} onDownloadNote={downloadNote} />
+            )}
+            {pendingRewards.length > 0 && (
+              <RewardModal reward={pendingRewards[0]} onClose={dismissReward} queueRemaining={pendingRewards.length} />
+            )}
+            {showNameModal && <NameSelectModal onSelect={handleNameSelect} />}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
