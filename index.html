@@ -74,6 +74,7 @@ const themeStyles = `
 
 .font-display { font-family: 'Jua', sans-serif; letter-spacing: -0.01em; font-size: 1.42em; }
 .font-body { font-family: 'Jua', sans-serif; font-size: 1.42em; }
+.font-large { font-size: 1.5em; }
 
 .app-bg {
   background:
@@ -212,17 +213,22 @@ const Acorn = ({ size = 48, animated = false }) => (
   </svg>
 );
 
-const Walnut = ({ size = 48, animated = false }) => (
+const Apple = ({ size = 48, animated = false }) => (
   <svg viewBox="0 0 60 60" width={size} height={size} className={animated ? 'animate-float' : ''}>
-    <ellipse cx="30" cy="32" rx="24" ry="25" fill="#A0623E" stroke="#5C2C0F" strokeWidth="2" />
-    <path d="M 30 8 L 30 56" stroke="#5C2C0F" strokeWidth="2" strokeLinecap="round" />
-    <path d="M 12 18 Q 22 28, 18 42" stroke="#5C2C0F" strokeWidth="1.5" fill="none" opacity="0.7" />
-    <path d="M 48 18 Q 38 28, 42 42" stroke="#5C2C0F" strokeWidth="1.5" fill="none" opacity="0.7" />
-    <path d="M 8 28 Q 30 32, 52 28" stroke="#5C2C0F" strokeWidth="1.5" fill="none" opacity="0.6" />
-    <path d="M 14 36 Q 30 40, 46 36" stroke="#5C2C0F" strokeWidth="1.2" fill="none" opacity="0.5" />
-    <ellipse cx="20" cy="22" rx="3" ry="5" fill="#D8956E" opacity="0.5" />
+    {/* 풋풋사과 본체 (초록) */}
+    <path d="M 30 18 Q 14 18 12 32 Q 11 48 22 52 Q 28 54 30 50 Q 32 54 38 52 Q 49 48 48 32 Q 46 18 30 18 Z"
+      fill="#84CC16" stroke="#365314" strokeWidth="2" strokeLinejoin="round" />
+    {/* 하이라이트 */}
+    <ellipse cx="22" cy="28" rx="5" ry="7" fill="#D9F99D" opacity="0.8" />
+    {/* 풋사과 꼭지 */}
+    <path d="M 30 18 Q 30 12 28 8" stroke="#5C2C0F" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+    {/* 이파리 */}
+    <path d="M 30 12 Q 38 8 42 14 Q 38 18 30 14 Z" fill="#15803D" stroke="#14532D" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="M 32 11 L 40 13" stroke="#14532D" strokeWidth="1" opacity="0.6" />
   </svg>
 );
+// 하위 호환을 위해 Walnut도 Apple로 alias
+const Walnut = Apple;
 
 const Leaf = ({ size = 40, color = '#D97757', rotation = 0 }) => (
   <svg viewBox="0 0 50 50" width={size} height={size} style={{ transform: `rotate(${rotation}deg)` }}>
@@ -236,7 +242,7 @@ const Leaf = ({ size = 40, color = '#D97757', rotation = 0 }) => (
 const Fraction = ({ num, den, color = '#C2410C', size = '3.5rem', barColor = null }) => (
   <span className="inline-flex flex-col items-center align-middle mx-1">
     <span className="font-display leading-none" style={{ color, fontSize: size }}>{num}</span>
-    <span style={{ borderBottom: `4px solid ${barColor || color}`, width: '2.2em', marginTop: '0.15em', marginBottom: '0.15em' }}></span>
+    <span style={{ borderBottom: `3px solid ${barColor || color}`, alignSelf: 'stretch', minWidth: '1.2em', marginTop: '0.1em', marginBottom: '0.1em' }}></span>
     <span className="font-display leading-none" style={{ color, fontSize: size }}>{den}</span>
   </span>
 );
@@ -282,6 +288,110 @@ const Card = ({ children, className = '' }) => (
   </div>
 );
 
+// ============ SCRATCH PAD (계산용 손글씨 보드) ============
+const ScratchPad = ({ width = 720, height = 150 }) => {
+  const canvasRef = useRef(null);
+  const drawing = useRef(false);
+  const last = useRef({ x: 0, y: 0 });
+  const [open, setOpen] = useState(true);
+  const [color, setColor] = useState('#1f2937');
+
+  useEffect(() => {
+    if (!open) return;
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFFCF5';
+    ctx.fillRect(0, 0, c.width, c.height);
+    // 가벼운 라인 (글씨 가이드)
+    ctx.strokeStyle = '#FDE8B5';
+    ctx.lineWidth = 1;
+    for (let y = 30; y < c.height; y += 30) {
+      ctx.beginPath();
+      ctx.moveTo(0, y); ctx.lineTo(c.width, y);
+      ctx.stroke();
+    }
+  }, [open]);
+
+  const getPos = (e) => {
+    const c = canvasRef.current; if (!c) return { x: 0, y: 0 };
+    const rect = c.getBoundingClientRect();
+    const cx = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const cy = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    return { x: (cx - rect.left) * (c.width / rect.width), y: (cy - rect.top) * (c.height / rect.height) };
+  };
+  const down = (e) => { drawing.current = true; last.current = getPos(e); };
+  const move = (e) => {
+    if (!drawing.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    const p = getPos(e);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = color === '#FFFCF5' ? 18 : 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(last.current.x, last.current.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last.current = p;
+  };
+  const up = () => { drawing.current = false; };
+  const clear = () => {
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFFCF5';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.strokeStyle = '#FDE8B5';
+    ctx.lineWidth = 1;
+    for (let y = 30; y < c.height; y += 30) {
+      ctx.beginPath();
+      ctx.moveTo(0, y); ctx.lineTo(c.width, y);
+      ctx.stroke();
+    }
+  };
+
+  if (!open) {
+    return (
+      <div className="flex justify-end mb-2">
+        <button onClick={() => setOpen(true)}
+          className="font-display bg-amber-100 hover:bg-amber-200 text-amber-900 border-2 border-b-4 border-amber-300 rounded-xl px-4 py-2 transition-all"
+          style={{ fontSize: '1.1rem' }}>
+          ✏️ 계산 보드 열기
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border-2 border-amber-300 p-3 mb-3 card-shadow">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-display text-amber-900" style={{ fontSize: '1.1rem' }}>✏️ 계산 보드 — 여기에 풀이를 적어 보세요</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setColor('#1f2937')}
+            className={`w-7 h-7 rounded-full border-2 ${color === '#1f2937' ? 'border-amber-600 ring-2 ring-amber-300' : 'border-stone-300'}`}
+            style={{ background: '#1f2937' }} title="검정 펜" />
+          <button onClick={() => setColor('#ea580c')}
+            className={`w-7 h-7 rounded-full border-2 ${color === '#ea580c' ? 'border-amber-600 ring-2 ring-amber-300' : 'border-stone-300'}`}
+            style={{ background: '#ea580c' }} title="주황 펜" />
+          <button onClick={() => setColor('#FFFCF5')}
+            className={`w-7 h-7 rounded-full border-2 ${color === '#FFFCF5' ? 'border-amber-600 ring-2 ring-amber-300' : 'border-stone-300'}`}
+            style={{ background: '#FFFCF5' }} title="지우개" />
+          <button onClick={clear}
+            className="font-body text-stone-500 hover:text-stone-700 underline ml-1" style={{ fontSize: '0.9rem' }}>전체 지우기</button>
+          <button onClick={() => setOpen(false)}
+            className="font-body text-stone-500 hover:text-stone-700 underline" style={{ fontSize: '0.9rem' }}>닫기</button>
+        </div>
+      </div>
+      <canvas ref={canvasRef} width={width} height={height}
+        className="rounded-lg border-2 border-amber-200 w-full bg-amber-50"
+        style={{ touchAction: 'none', cursor: 'crosshair', height: height }}
+        onMouseDown={down} onMouseMove={move} onMouseUp={up} onMouseLeave={up}
+        onTouchStart={(e) => { e.preventDefault(); down(e); }}
+        onTouchMove={(e) => { e.preventDefault(); move(e); }}
+        onTouchEnd={up} />
+    </div>
+  );
+};
+
 const StarRow = ({ count, total = 3, size = 24 }) => (
   <div className="flex gap-1">
     {[...Array(total)].map((_, i) => (
@@ -321,7 +431,7 @@ const TopBar = ({ onHome, onBack, title, progress, rightSlot }) => (
 const MILESTONES = [
   { id: 'm5', count: 5, icon: '🌱', name: '새싹', desc: '5문제 정답!' },
   { id: 'm10', count: 10, icon: '🌰', name: '도토리 모음', desc: '10문제 정답!' },
-  { id: 'm20', count: 20, icon: '🥜', name: '호두 모음', desc: '20문제 정답!' },
+  { id: 'm20', count: 20, icon: '🍏', name: '풋사과 모음', desc: '20문제 정답!' },
   { id: 'm30', count: 30, icon: '🍂', name: '단풍잎', desc: '30문제 정답!' },
   { id: 'm50', count: 50, icon: '⭐', name: '빛나는 별', desc: '50문제 정답!' },
   { id: 'm100', count: 100, icon: '🌳', name: '큰 나무', desc: '100문제 정답!' },
@@ -460,8 +570,8 @@ const StageOverview = ({ stageNumber, stageBadge, stageTitle, stageGoal, accentC
         </div>
       </div>
 
-      {/* 카드 목록 */}
-      <div className="flex-1 flex flex-col gap-2">
+      {/* 카드 목록 — 균등 분배 (각 카드가 동일 높이로 펼쳐짐) */}
+      <div className="flex-1 grid grid-rows-5 gap-2 min-h-0">
         {cards.map(card => {
           const visited = visitedCards.has(card.id);
           const recommended = card.id === recommendedId;
@@ -469,34 +579,34 @@ const StageOverview = ({ stageNumber, stageBadge, stageTitle, stageGoal, accentC
             <button
               key={card.id}
               onClick={() => onCardClick(card)}
-              className={`w-full text-left rounded-2xl border-2 px-5 py-3 transition-all flex items-center justify-between card-shadow ${
+              className={`w-full text-left rounded-2xl border-2 px-5 py-2 transition-all flex items-center justify-between card-shadow ${
                 recommended
                   ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-300'
                   : 'bg-white border-amber-200 hover:bg-amber-50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-display text-lg ${
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center font-display text-2xl ${
                   recommended ? 'bg-orange-500 text-white' : 'bg-amber-200 text-amber-900'
                 }`}>{card.id}</div>
-                <span className="text-2xl">{card.icon}</span>
-                <span className="font-display text-xl text-amber-900">{card.title}</span>
+                <span className="text-3xl">{card.icon}</span>
+                <span className="font-display text-2xl text-amber-900">{card.title}</span>
               </div>
               <div className="flex items-center gap-2">
                 {recommended && (
-                  <span className="bg-orange-400 text-white px-3 py-1 rounded-full font-display text-sm">✨ 추천</span>
+                  <span className="bg-orange-400 text-white px-3 py-1 rounded-full font-display text-base">✨ 추천</span>
                 )}
-                <span className={`px-3 py-1 rounded-full font-display text-sm ${
+                <span className={`px-3 py-1 rounded-full font-display text-base ${
                   visited ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-stone-100 text-stone-500 border border-stone-200'
                 }`}>{visited ? '완료' : '시작 전'}</span>
-                <ArrowRight size={22} className="text-orange-500 ml-1" />
+                <ArrowRight size={26} className="text-orange-500 ml-1" />
               </div>
             </button>
           );
         })}
       </div>
 
-      <p className="text-center font-body text-amber-700 text-sm mt-3">
+      <p className="text-center font-body text-amber-700 text-base mt-2">
         📊 <b>학습 단계</b> — 순서대로 진행하거나, 원하는 단계를 직접 선택할 수 있어요!
       </p>
     </div>
@@ -578,15 +688,13 @@ const HomeScreen = ({ progress, rewards, studentName, onNavigate, onReset, onDow
                   <button
                     onClick={() => !locked && onNavigate(stage.id)}
                     disabled={locked}
-                    className={`block transition-transform ${locked ? 'opacity-60' : 'hover:scale-[1.04] active:scale-[0.98]'}`}
+                    className={`block transition-transform relative ${locked ? 'opacity-60' : 'hover:scale-[1.04] active:scale-[0.98]'}`}
+                    style={{ paddingTop: 12, paddingLeft: 12 }}
                   >
                     <div className={`relative bg-gradient-to-br ${stage.color} rounded-3xl card-shadow border-4 border-white overflow-hidden`}
                       style={{ width: 280, height: 380 }}>
-                      <div className="absolute -top-3 -left-3 w-14 h-14 bg-white rounded-full border-4 border-amber-200 flex items-center justify-center font-display text-amber-900 text-2xl card-shadow">
-                        {idx + 1}
-                      </div>
                       {locked && (
-                        <div className="absolute top-4 right-4 bg-white/80 rounded-full p-2">
+                        <div className="absolute top-4 right-4 bg-white/80 rounded-full p-2 z-10">
                           <Lock size={20} className="text-amber-800" />
                         </div>
                       )}
@@ -601,6 +709,9 @@ const HomeScreen = ({ progress, rewards, studentName, onNavigate, onReset, onDow
                           </div>
                         )}
                       </div>
+                    </div>
+                    <div className="absolute top-0 left-0 w-16 h-16 bg-white rounded-full border-4 border-amber-200 flex items-center justify-center font-display text-amber-900 text-3xl card-shadow z-20">
+                      {idx + 1}
                     </div>
                   </button>
                 </div>
@@ -662,6 +773,9 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
   const [practiceInputB, setPracticeInputB] = useState('');
   const [practiceFeedback, setPracticeFeedback] = useState(null);
   const [readsShown, setReadsShown] = useState({});
+  // 활동3 직접 쓰기 입력 — 각 읽기에 a, b 두 칸
+  const [readsInput, setReadsInput] = useState({});
+  const [readsCheckedAt, setReadsCheckedAt] = useState(0);
 
   const acornPositions = [
     { x: 70, y: 70 }, { x: 170, y: 70 }, { x: 270, y: 70 },
@@ -735,32 +849,46 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
 
   const goOverview = () => setShowOverview(true);
 
+  // 한 단계 뒤로 — 가능한 가장 가까운 직전 화면으로 이동
+  const goBack = () => {
+    if (step === 0) {
+      if (introStep > 0) setIntroStep(introStep - 1);
+      else setShowOverview(true);
+    } else if (step === 1) {
+      if (lessonStep > 0) setLessonStep(lessonStep - 1);
+      else { setStep(0); setIntroStep(1); }
+    } else if (step === 2) {
+      setStep(1); setLessonStep(1);
+    } else if (step === 3) {
+      if (practiceStep > 0) setPracticeStep(practiceStep - 1);
+      else setStep(2);
+    } else if (step === 4) {
+      if (quizSize) { setQuizSize(null); setSelectedQuestions([]); setQIndex(0); setQAnswers([]); setFeedback(null); }
+      else setStep(3);
+    } else if (step === 5) {
+      setStep(4);
+    } else {
+      setShowOverview(true);
+    }
+  };
+
   const HINT_ORDER = '비를 쓸 때는 문제에서 먼저 말한 양이 ":" 앞에 와요. 문제를 다시 한 번 잘 읽어보세요!';
   const HINT_READ = '":" 기호는 "대"라고 읽어요. 두 숫자 사이에 "대"를 넣어 읽어보세요.';
   const HINT_WRITE = '"대" 자리에 ":" 기호를 넣으면 돼요. 숫자의 순서는 그대로 두세요!';
   const HINT_SAME = '두 양이 같을 때도 똑같이 ":" 기호를 사용해요. 합하거나 빼는 게 아니에요!';
 
+  // 실생활 비 문제 10문제 — 원하는 개수를 누르면 이 풀에서 랜덤으로 출제됨
   const quizPool = [
-    { q: '도토리 7개와 호두 4개가 있어요. 도토리 수와 호두 수의 비를 어떻게 쓸까요?', visual: { a: 7, w: 4 }, options: ['7 : 4', '4 : 7', '11', '7 + 4'], answer: 0, explanation: HINT_ORDER },
-    { q: '도토리 3개와 호두 5개가 있어요. 호두 수와 도토리 수의 비를 어떻게 쓸까요?', visual: { a: 3, w: 5 }, options: ['3 : 5', '5 : 3', '8', '5 + 3'], answer: 1, explanation: HINT_ORDER },
-    { q: '"5 : 8" 을 어떻게 읽을까요?', options: ['오 더하기 팔', '오 빼기 팔', '오 대 팔', '오 곱하기 팔'], answer: 2, explanation: HINT_READ },
-    { q: '"3 대 7"을 기호로 쓰면?', options: ['3 + 7', '3 : 7', '3 - 7', '3 × 7'], answer: 1, explanation: HINT_WRITE },
-    { q: '도토리 6개와 호두 3개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 6, w: 3 }, options: ['3 : 6', '6 : 3', '9', '6 - 3'], answer: 1, explanation: HINT_ORDER },
-    { q: '도토리 2개와 호두 9개가 있어요. 호두 수와 도토리 수의 비는?', visual: { a: 2, w: 9 }, options: ['2 : 9', '9 : 2', '11', '9 + 2'], answer: 1, explanation: HINT_ORDER },
-    { q: '"8 대 3"을 기호로 쓰면?', options: ['8 : 3', '3 : 8', '8 - 3', '8 × 3'], answer: 0, explanation: HINT_WRITE },
-    { q: '도토리 9개와 호두 1개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 9, w: 1 }, options: ['1 : 9', '9 : 1', '10', '9 - 1'], answer: 1, explanation: HINT_ORDER },
-    { q: '"2 : 7"을 어떻게 읽을까요?', options: ['이 곱하기 칠', '이 빼기 칠', '이 대 칠', '이 더하기 칠'], answer: 2, explanation: HINT_READ },
-    { q: '도토리 3개와 호두 4개가 있어요. 호두 수와 도토리 수의 비는?', visual: { a: 3, w: 4 }, options: ['3 : 4', '4 : 3', '7', '4 - 3'], answer: 1, explanation: HINT_ORDER },
-    { q: '도토리 5개와 호두 5개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 5, w: 5 }, options: ['5 : 5', '5 + 5', '10', '5 - 5'], answer: 0, explanation: HINT_SAME },
-    { q: '도토리 7개와 호두 2개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 7, w: 2 }, options: ['2 : 7', '7 : 2', '9', '7 - 2'], answer: 1, explanation: HINT_ORDER },
-    { q: '도토리 4개와 호두 8개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 4, w: 8 }, options: ['8 : 4', '4 : 8', '12', '4 + 8'], answer: 1, explanation: HINT_ORDER },
-    { q: '"9 대 4"를 기호로 쓰면?', options: ['4 : 9', '9 : 4', '9 + 4', '9 - 4'], answer: 1, explanation: HINT_WRITE },
-    { q: '도토리 6개와 호두 7개가 있어요. 호두 수와 도토리 수의 비는?', visual: { a: 6, w: 7 }, options: ['6 : 7', '7 : 6', '13', '7 - 6'], answer: 1, explanation: HINT_ORDER },
-    { q: '도토리 8개와 호두 3개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 8, w: 3 }, options: ['3 : 8', '8 : 3', '11', '8 - 3'], answer: 1, explanation: HINT_ORDER },
-    { q: '"6 : 9"를 어떻게 읽을까요?', options: ['육 더하기 구', '육 대 구', '육 빼기 구', '육 곱하기 구'], answer: 1, explanation: HINT_READ },
-    { q: '도토리 2개와 호두 5개가 있어요. 도토리 수와 호두 수의 비는?', visual: { a: 2, w: 5 }, options: ['5 : 2', '2 : 5', '7', '2 + 5'], answer: 1, explanation: HINT_ORDER },
-    { q: '"4 대 1"을 기호로 쓰면?', options: ['1 : 4', '4 : 1', '4 + 1', '4 - 1'], answer: 1, explanation: HINT_WRITE },
-    { q: '"7 : 3"을 어떻게 읽을까요?', options: ['칠 빼기 삼', '칠 대 삼', '칠 더하기 삼', '칠 곱하기 삼'], answer: 1, explanation: HINT_READ },
+    { q: '우리 반 남학생이 12명, 여학생이 13명이에요. 남학생 수에 대한 여학생 수의 비를 어떻게 쓸까요?', options: ['12 : 13', '13 : 12', '25', '13 + 12'], answer: 1, explanation: HINT_ORDER },
+    { q: '🚲 자전거 가게에 자전거 7대와 자동차 3대가 있어요. 자전거 수에 대한 자동차 수의 비는?', options: ['7 : 3', '3 : 7', '10', '7 - 3'], answer: 1, explanation: HINT_ORDER },
+    { q: '⚽ 운동장에 축구공 5개와 농구공 3개가 있어요. 축구공 수와 농구공 수의 비는?', options: ['5 : 3', '3 : 5', '8', '5 + 3'], answer: 0, explanation: HINT_ORDER },
+    { q: '📚 도서관 책 30권 중 동화책이 12권이에요. 전체 책 수에 대한 동화책 수의 비는?', options: ['12 : 30', '30 : 12', '18', '12 + 30'], answer: 0, explanation: HINT_ORDER },
+    { q: '🎂 케이크 한 판을 8조각으로 잘랐어요. 그 중 3조각을 먹었을 때, 먹은 조각 수와 전체 조각 수의 비는?', options: ['8 : 3', '3 : 8', '11', '3 + 8'], answer: 1, explanation: HINT_ORDER },
+    { q: '🏐 학교 운동회에서 청팀이 16점, 백팀이 14점을 얻었어요. 청팀 점수에 대한 백팀 점수의 비는?', options: ['16 : 14', '14 : 16', '30', '16 - 14'], answer: 1, explanation: HINT_ORDER },
+    { q: '"8 대 5" 를 기호로 쓰면?', options: ['8 : 5', '5 : 8', '13', '8 + 5'], answer: 0, explanation: HINT_WRITE },
+    { q: '"3 : 7" 을 어떻게 읽을까요?', options: ['삼 빼기 칠', '삼 더하기 칠', '삼 대 칠', '삼 곱하기 칠'], answer: 2, explanation: HINT_READ },
+    { q: '🔴🔵 빨간 구슬 6개와 파란 구슬 9개가 있어요. 빨간 구슬 수와 파란 구슬 수의 비는?', options: ['6 : 9', '9 : 6', '15', '6 - 9'], answer: 0, explanation: HINT_ORDER },
+    { q: '👓 우리 반 25명 중 안경 쓴 학생이 10명이에요. 전체 학생 수에 대한 안경 쓴 학생 수의 비는?', options: ['25 : 10', '10 : 25', '15', '10 + 25'], answer: 1, explanation: HINT_ORDER },
   ];
 
   const score = qAnswers.filter(Boolean).length;
@@ -776,16 +904,16 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
             <Squirrel size={220} mood="happy" />
           </div>
           <Card className="flex-1 max-w-4xl !p-8">
-            <h2 className="font-display text-amber-900 mb-4" style={{ fontSize: '2.9rem' }}>다람쥐의 가을 모음 🌰🥜</h2>
+            <h2 className="font-display text-amber-900 mb-4" style={{ fontSize: '2.9rem' }}>다람쥐의 가을 모음 🌰🍏</h2>
             <p className="font-body text-stone-700 leading-relaxed" style={{ fontSize: '1.6rem', lineHeight: '2.6rem' }}>
               가을이 깊어진 어느 날,<br/>
-              다람쥐가 신나게 <b className="text-orange-600">도토리 6개</b>와 <b className="text-amber-700">호두 3개</b>를 모았어요.
+              다람쥐가 신나게 <b className="text-orange-600">도토리 6개</b>와 <b className="text-lime-700">풋사과 3개</b>를 모았어요.
             </p>
             <div className="bg-amber-50 rounded-2xl p-6 mt-5 border-2 border-amber-200">
               <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.7rem', lineHeight: '2.8rem' }}>
                 🤔 도토리를 좋아하는 다람쥐는<br/>
-                <b>호두보다 도토리가 몇 배 더 많은지</b> 궁금했어요!<br/>
-                도토리와 호두를 어떻게 비교할 수 있을까요?
+                <b>풋사과보다 도토리가 몇 배 더 많은지</b> 궁금했어요!<br/>
+                도토리와 풋사과를 어떻게 비교할 수 있을까요?
               </p>
             </div>
             <div className="text-right mt-6">
@@ -800,36 +928,35 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
     const groupColors = ['#f97316', '#f43f5e']; // orange, rose
     const groupFills = ['rgba(249, 115, 22, 0.15)', 'rgba(244, 63, 94, 0.15)'];
     return (
-      <div className="animate-fade-up h-full flex flex-col items-center justify-center px-8 py-3 gap-3">
+      <div className="animate-fade-up h-full flex flex-col items-center px-8 pt-2 pb-3 gap-3 overflow-y-auto">
         <div className="text-center">
-          <h2 className="font-display text-amber-900 mb-1" style={{ fontSize: '2.7rem' }}>두 양을 비교해 봐요! 🤔</h2>
-          <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>도토리는 호두보다 <b className="text-orange-700">몇 배</b> 더 많을까요?</p>
+          <h2 className="font-display text-amber-900" style={{ fontSize: '2.5rem' }}>두 양을 비교해 봐요! 🤔</h2>
+          <p className="font-body text-stone-700" style={{ fontSize: '2.2rem', lineHeight: '3rem' }}>도토리는 풋사과보다 <b className="text-orange-700">몇 배</b> 더 많을까요?</p>
         </div>
 
-        <Card className="w-full max-w-6xl !p-6">
-          <p className="font-body text-stone-700 text-center mb-4" style={{ fontSize: '1.4rem', lineHeight: '2.1rem' }}>
-            호두 <b className="text-amber-700">3개</b>를 <b className="text-emerald-700">한 묶음(기준)</b>으로 정했어요.<br/>
-            도토리도 <b>3개씩</b> 마우스로 <b className="text-orange-700">동그라미를 그려서</b> 묶어 볼까요?
+        <Card className="w-full max-w-6xl !p-5">
+          <p className="font-body text-stone-700 text-center mb-3" style={{ fontSize: '2rem', lineHeight: '2.8rem' }}>
+            풋사과 <b className="text-lime-700">3개</b>를 <b className="text-emerald-700">한 묶음(기준)</b>으로 정했어요. 도토리도 <b>3개씩</b> <b className="text-orange-700">동그라미를 그려서</b> 묶어 볼까요?
           </p>
 
-          {/* 호두 한 묶음 (기준) */}
+          {/* 풋사과 한 묶음 (기준) */}
           <div className="flex items-center gap-3 mb-3 justify-center">
-            <span className="font-display text-amber-800 w-16 text-right" style={{ fontSize: '1.4rem' }}>호두</span>
-            <div className="bg-amber-100 rounded-xl p-2 border-4 border-dashed border-amber-500">
+            <span className="font-display text-lime-700 w-24 text-right" style={{ fontSize: '2.2rem' }}>풋사과</span>
+            <div className="bg-lime-50 rounded-xl p-2 border-4 border-dashed border-lime-500">
               <div className="flex gap-1.5">
-                {[...Array(3)].map((_, i) => <Walnut key={i} size={44} />)}
+                {[...Array(3)].map((_, i) => <Walnut key={i} size={42} />)}
               </div>
             </div>
-            <span className="font-display text-amber-800" style={{ fontSize: '1.15rem' }}>← 한 묶음 (기준)</span>
+            <span className="font-display text-lime-700" style={{ fontSize: '1.7rem' }}>← 한 묶음 (기준)</span>
           </div>
 
           {/* 도토리: 드래그로 묶기 */}
-          <div className="flex items-center gap-3 justify-center mb-2">
-            <span className="font-display text-orange-700 w-16 text-right" style={{ fontSize: '1.4rem' }}>도토리</span>
+          <div className="flex items-center gap-3 justify-center mb-1">
+            <span className="font-display text-orange-700 w-24 text-right" style={{ fontSize: '2.2rem' }}>도토리</span>
             <div
               ref={drawAreaRef}
               className="relative bg-amber-50 rounded-xl border-2 border-amber-200 overflow-hidden"
-              style={{ width: '700px', height: '140px', cursor: paths.length < 2 ? 'crosshair' : 'default', touchAction: 'none' }}
+              style={{ width: '680px', height: '110px', cursor: paths.length < 2 ? 'crosshair' : 'default', touchAction: 'none' }}
               onMouseDown={handleDrawDown}
               onMouseMove={handleDrawMove}
               onMouseUp={handleDrawUp}
@@ -839,67 +966,66 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
               onTouchEnd={handleDrawUp}
             >
               <svg viewBox="0 0 700 140" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
-                {/* 완성된 묶음들 */}
                 {paths.map((p, gi) => (
                   <polygon key={gi} points={p.map(pt => `${pt.x},${pt.y}`).join(' ')}
                     fill={groupFills[gi]} stroke={groupColors[gi]} strokeWidth="3"
                     strokeDasharray="6 4" strokeLinejoin="round" />
                 ))}
-                {/* 그리는 중인 path */}
                 {currentPath.length > 1 && (
                   <polyline points={currentPath.map(pt => `${pt.x},${pt.y}`).join(' ')}
                     fill="none" stroke="#fbbf24" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
                 )}
               </svg>
-              {/* 도토리들 */}
               {acornPositions.map((pos, i) => (
                 <div key={i} className="absolute pointer-events-none"
                   style={{ left: `${(pos.x / 700) * 100}%`, top: `${(pos.y / 140) * 100}%`, transform: 'translate(-50%, -50%)' }}>
-                  <Acorn size={48} />
+                  <Acorn size={40} />
                 </div>
               ))}
             </div>
           </div>
 
-          {!allGrouped ? (
-            <p className="font-body text-stone-500 text-center" style={{ fontSize: '1.2rem' }}>
-              {paths.length === 0 && '👆 도토리 3개 주위에 동그라미를 그려 보세요'}
-              {paths.length === 1 && '👍 한 묶음 만듦! 나머지 도토리도 동그라미로 묶어 봐요'}
-              {paths.length === 2 && '⚠️ 묶음이 정확하지 않아요. 다시 그려 봐요'}
-            </p>
-          ) : (
-            <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-300 text-center animate-pop-in mt-3">
-              <p className="font-body text-stone-700 mb-1" style={{ fontSize: '1.4rem' }}>
-                도토리는 호두 묶음으로 <b className="text-orange-700">2개 묶음</b>!
+          <div className="flex items-center justify-center gap-4 mt-2 min-h-[2.5rem]">
+            {!allGrouped && (
+              <p className="font-body text-stone-500" style={{ fontSize: '1.9rem' }}>
+                {paths.length === 0 && '👆 도토리 3개 주위에 동그라미를 그려 보세요'}
+                {paths.length === 1 && '👍 한 묶음! 나머지 도토리도 동그라미로 묶어 봐요'}
+                {paths.length === 2 && '⚠️ 묶음이 정확하지 않아요. 다시 그려 봐요'}
               </p>
-              <p className="font-display text-emerald-800" style={{ fontSize: '1.9rem' }}>
-                ⇒ 도토리는 호두의 <b className="text-orange-700" style={{ fontSize: '2.6rem' }}>2배</b>!
-              </p>
-            </div>
-          )}
-
-          {paths.length > 0 && (
-            <div className="text-center mt-3">
-              <button onClick={() => { setPaths([]); setCurrentPath([]); }} className="text-stone-500 hover:text-stone-700 underline" style={{ fontSize: '1rem' }}>↩ 다시 묶기</button>
-            </div>
-          )}
-        </Card>
-
-        <div className="flex items-center justify-center gap-5">
-          <Squirrel size={100} mood={allGrouped ? 'happy' : 'thinking'} />
-          <div>
-            {allGrouped ? (
-              <>
-                <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.3rem' }}>이 비교를 <b>간단한 기호</b>로 나타낼 수 있어요!</p>
-                <div className="text-right">
-                  <Button onClick={() => setStep(1)}>비로 표현하기 <ArrowRight size={22} className="inline ml-1" /></Button>
-                </div>
-              </>
-            ) : (
-              <p className="font-body text-stone-600" style={{ fontSize: '1.3rem' }}>👈 위에서 도토리를 마우스로 묶어 봐요!</p>
+            )}
+            {paths.length > 0 && (
+              <button onClick={() => { setPaths([]); setCurrentPath([]); }} className="text-stone-500 hover:text-stone-700 underline" style={{ fontSize: '1.5rem' }}>↩ 다시 묶기</button>
             )}
           </div>
+        </Card>
+
+        <div className="flex items-center justify-center gap-3">
+          <Squirrel size={90} mood={allGrouped ? 'happy' : 'thinking'} />
+          <p className="font-body text-stone-600" style={{ fontSize: '2rem' }}>👈 도토리를 마우스로 묶어 봐요!</p>
         </div>
+
+        {/* 결과 팝업 — 모두 묶었을 때 */}
+        {allGrouped && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.55)' }}>
+            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full card-shadow border-4 border-emerald-300 text-center animate-pop-in">
+              <div className="text-7xl mb-2">🎉</div>
+              <h3 className="font-display text-emerald-700 mb-3" style={{ fontSize: '2.4rem' }}>잘했어요!</h3>
+              <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-200 mb-4">
+                <p className="font-body text-stone-700 mb-1" style={{ fontSize: '1.4rem' }}>
+                  도토리는 풋사과 묶음으로 <b className="text-orange-700">2개 묶음</b>!
+                </p>
+                <p className="font-display text-emerald-800" style={{ fontSize: '2rem' }}>
+                  ⇒ 도토리는 풋사과의 <b className="text-orange-700" style={{ fontSize: '2.8rem' }}>2배</b>!
+                </p>
+              </div>
+              <p className="font-body text-stone-700 mb-4" style={{ fontSize: '1.3rem' }}>이 비교를 <b>간단한 기호</b>로 나타낼 수 있어요!</p>
+              <div className="flex items-center justify-center gap-3">
+                <Button variant="soft" onClick={() => { setPaths([]); setCurrentPath([]); }}>↩ 다시 묶기</Button>
+                <Button onClick={() => setStep(1)}>비로 표현하기 <ArrowRight size={22} className="inline ml-1" /></Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -929,9 +1055,9 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
 
               {/* 우측: 그림 + 설명 (3/5) */}
               <div className="col-span-3 bg-emerald-50 rounded-xl p-5 border-2 border-emerald-300 flex flex-col gap-3">
-                {/* 호두 한 묶음 */}
+                {/* 풋사과 한 묶음 */}
                 <div className="flex items-center gap-2 justify-center">
-                  <span className="font-display text-amber-800 w-20 text-right whitespace-nowrap" style={{ fontSize: '1.35rem' }}>호두</span>
+                  <span className="font-display text-lime-700 w-20 text-right whitespace-nowrap" style={{ fontSize: '1.35rem' }}>풋사과</span>
                   <div className="bg-amber-100 rounded-full px-3 py-1.5 border-3 border-dashed border-amber-600">
                     <div className="flex gap-1">
                       {[...Array(3)].map((_, i) => <Walnut key={i} size={36} />)}
@@ -957,12 +1083,16 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
                 {/* 설명 */}
                 <div className="bg-white rounded-lg p-4 border-2 border-emerald-200 text-center mt-1">
                   <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.4rem', lineHeight: '2rem' }}>
-                    호두 <b className="text-amber-700">3개</b>를 기준으로 도토리는 <b className="text-orange-700">2배</b>! 기호 ":"로 쓰면
+                    <b className="text-lime-700">풋사과 3개</b>를 기준으로 <b className="text-orange-700">도토리는 2배</b>! 기호 ":"로 쓰면
                   </p>
-                  <p className="font-display text-emerald-700 my-2" style={{ fontSize: '4rem' }}>6 : 3</p>
-                  <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>"<b>도토리와 호두의 비</b>"</p>
+                  <div className="my-3 flex items-center justify-center gap-3">
+                    <span className="inline-flex items-center justify-center bg-orange-500 text-white rounded-2xl font-display border-b-4 border-orange-700 shadow-lg" style={{ width: '5.5rem', height: '5.5rem', fontSize: '3.6rem' }}>6</span>
+                    <span className="font-display text-stone-700" style={{ fontSize: '3.6rem' }}>:</span>
+                    <span className="inline-flex items-center justify-center bg-lime-500 text-white rounded-2xl font-display border-b-4 border-lime-700 shadow-lg" style={{ width: '5.5rem', height: '5.5rem', fontSize: '3.6rem' }}>3</span>
+                  </div>
+                  <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>"<b className="text-orange-700">도토리</b>와 <b className="text-lime-700">풋사과</b>의 비"</p>
                   <p className="font-body text-stone-600 mt-2" style={{ fontSize: '1.2rem' }}>
-                    기준 호두는 ":" 뒤, 비교 도토리는 ":" 앞
+                    기준 <b className="text-lime-700">풋사과</b>는 ":" 뒤, 비교 <b className="text-orange-700">도토리</b>는 ":" 앞
                   </p>
                 </div>
               </div>
@@ -987,9 +1117,9 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
           <div className="grid grid-cols-2 gap-5">
             {/* 좌측: 묶음 그림 */}
             <div className="bg-amber-50 rounded-xl p-5 border-2 border-amber-200 flex flex-col justify-center">
-              {/* 호두 한 묶음 */}
+              {/* 풋사과 한 묶음 */}
               <div className="flex items-center gap-2 mb-3 justify-center">
-                <span className="font-display text-amber-800 w-20 text-right" style={{ fontSize: '1.35rem' }}>호두</span>
+                <span className="font-display text-lime-700 w-20 text-right" style={{ fontSize: '1.35rem' }}>풋사과</span>
                 <div className="bg-amber-100 rounded-full px-3 py-1.5 border-3 border-dashed border-amber-600">
                   <div className="flex gap-1">
                     {[...Array(3)].map((_, i) => <Walnut key={i} size={40} />)}
@@ -1013,21 +1143,44 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
               </div>
 
               <div className="bg-white rounded-xl p-4 border-2 border-emerald-300 text-center mt-3">
-                <p className="font-display text-emerald-700 my-1" style={{ fontSize: '3.8rem' }}>6 : 3</p>
-                <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>"<b>도토리와 호두의 비</b>"</p>
+                <div className="my-2 flex items-center justify-center gap-3">
+                  <span className="inline-flex items-center justify-center bg-orange-500 text-white rounded-2xl font-display border-b-4 border-orange-700 shadow-lg" style={{ width: '4.6rem', height: '4.6rem', fontSize: '3rem' }}>6</span>
+                  <span className="font-display text-stone-700" style={{ fontSize: '3rem' }}>:</span>
+                  <span className="inline-flex items-center justify-center bg-lime-500 text-white rounded-2xl font-display border-b-4 border-lime-700 shadow-lg" style={{ width: '4.6rem', height: '4.6rem', fontSize: '3rem' }}>3</span>
+                </div>
+                <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>"<b className="text-orange-700">도토리</b>와 <b className="text-lime-700">풋사과</b>의 비"</p>
               </div>
             </div>
 
-            {/* 우측: 3가지 읽기 + ~에 대한 */}
+            {/* 우측: 4가지 읽기 + ~에 대한 */}
             <div className="flex flex-col gap-3">
               <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-300">
-                <p className="font-display text-emerald-800 text-center mb-3" style={{ fontSize: '1.5rem' }}>
-                  💡 <b className="text-emerald-700">6 : 3</b>을 읽는 3가지 방법
+                <p className="font-display text-emerald-800 text-center mb-3 flex items-center justify-center gap-2" style={{ fontSize: '1.4rem' }}>
+                  💡{' '}
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center justify-center bg-orange-500 text-white rounded-lg font-display border-b-2 border-orange-700 w-10 h-10 shadow" style={{ fontSize: '1.5rem' }}>6</span>
+                    <span className="font-display text-stone-700" style={{ fontSize: '1.5rem' }}>:</span>
+                    <span className="inline-flex items-center justify-center bg-lime-500 text-white rounded-lg font-display border-b-2 border-lime-700 w-10 h-10 shadow" style={{ fontSize: '1.5rem' }}>3</span>
+                  </span>
+                  을 읽는 4가지 방법
                 </p>
-                <div className="bg-white rounded-lg p-4 border-2 border-emerald-200 space-y-2.5">
-                  <p className="font-display text-emerald-700" style={{ fontSize: '1.55rem' }}>① 6 대 3</p>
-                  <p className="font-display text-emerald-700" style={{ fontSize: '1.55rem' }}>② 6과 3의 비</p>
-                  <p className="font-display text-emerald-700" style={{ fontSize: '1.55rem' }}>③ <b className="text-rose-600">3</b>에 대한 6의 비</p>
+                <div className="bg-white rounded-lg p-3 border-2 border-emerald-200 space-y-2">
+                  {(() => {
+                    const Btn6 = () => <span className="inline-flex items-center justify-center bg-orange-500 text-white rounded-md font-display border-b-2 border-orange-700 mx-1 shadow-sm" style={{ width: '2rem', height: '2rem', fontSize: '1.25rem' }}>6</span>;
+                    const Btn3 = () => <span className="inline-flex items-center justify-center bg-lime-500 text-white rounded-md font-display border-b-2 border-lime-700 mx-1 shadow-sm" style={{ width: '2rem', height: '2rem', fontSize: '1.25rem' }}>3</span>;
+                    const items = [
+                      { idx: '①', parts: [<Btn6 />, ' 대 ', <Btn3 />] },
+                      { idx: '②', parts: [<Btn6 />, '과 ', <Btn3 />, '의 비'] },
+                      { idx: '③', parts: [<Btn6 />, '의 ', <Btn3 />, '에 대한 비'] },
+                      { idx: '④', parts: [<Btn3 />, '에 대한 ', <Btn6 />, '의 비'] },
+                    ];
+                    return items.map((it, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-emerald-50 rounded-lg px-3 py-2 border border-emerald-200">
+                        <span className="font-display text-emerald-700" style={{ fontSize: '1.4rem' }}>{it.idx}</span>
+                        <span className="font-display text-stone-800 inline-flex items-center" style={{ fontSize: '1.3rem' }}>{it.parts.map((p, j) => <React.Fragment key={j}>{p}</React.Fragment>)}</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -1040,8 +1193,7 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
           </div>
         </Card>
 
-        <div className="flex items-center justify-center gap-3">
-          <Button onClick={() => setLessonStep(0)} variant="soft">← 이전</Button>
+        <div className="text-right">
           <Button onClick={() => setStep(2)}>이해했어요! <ArrowRight size={22} className="inline ml-1" /></Button>
         </div>
       </div>
@@ -1049,62 +1201,75 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
   };
 
   const renderSummary = () => (
-    <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
-      <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>✨ 비의 숲 — 핵심 정리</h2>
-      <p className="font-body text-stone-600 text-center mb-3" style={{ fontSize: '1.4rem' }}>잊지 말아요! 비의 핵심 4가지</p>
+    <div className="animate-fade-up h-full flex flex-col px-10 pt-2 pb-2 min-h-0">
+      <h2 className="font-display text-amber-900 text-center" style={{ fontSize: '2rem' }}>✨ 비의 숲 — 핵심 정리</h2>
+      <p className="font-body text-stone-600 text-center mb-2" style={{ fontSize: '1.1rem' }}>잊지 말아요! 비의 핵심 4가지</p>
 
-      <div className="flex-1 grid grid-cols-2 gap-4">
-        <Card className="!p-5 bg-orange-50 border-orange-200">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="bg-orange-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-orange-900" style={{ fontSize: '1.6rem' }}>1</span></div>
+      <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
+        <Card className="!p-4 bg-orange-50 border-orange-200 flex flex-col justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-orange-200 rounded-full w-11 h-11 flex items-center justify-center"><span className="font-display text-orange-900" style={{ fontSize: '1.6rem' }}>1</span></div>
             <p className="font-display text-orange-800" style={{ fontSize: '1.7rem' }}>비란?</p>
           </div>
-          <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.3rem' }}>두 양을 비교할 때 기호 ":"를 써서 나타낸 것</p>
-          <div className="bg-white rounded-xl p-3 border-2 border-orange-200 text-center">
-            <p className="font-display text-orange-700" style={{ fontSize: '2.6rem' }}>3 : 5</p>
+          <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.35rem', lineHeight: '1.9rem' }}>두 양을 비교할 때 기호 <b>":"</b>를 써서 나타낸 것</p>
+          <div className="bg-white rounded-xl p-2 border-2 border-orange-200 text-center">
+            <p className="font-display" style={{ fontSize: '2.6rem' }}>
+              <span className="text-orange-600">3</span>
+              <span className="text-stone-700"> : </span>
+              <span className="text-lime-700">5</span>
+            </p>
           </div>
         </Card>
 
-        <Card className="!p-5 bg-emerald-50 border-emerald-200">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="bg-emerald-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-emerald-900" style={{ fontSize: '1.6rem' }}>2</span></div>
+        <Card className="!p-4 bg-emerald-50 border-emerald-200 flex flex-col justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-emerald-200 rounded-full w-11 h-11 flex items-center justify-center"><span className="font-display text-emerald-900" style={{ fontSize: '1.6rem' }}>2</span></div>
             <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem' }}>어떻게 쓸까?</p>
           </div>
-          <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.3rem' }}>문제에서 <b>먼저 말한 양</b>이 ":" 앞에 와요</p>
-          <div className="bg-white rounded-xl p-3 border-2 border-emerald-200 text-center">
-            <p className="font-display text-emerald-700" style={{ fontSize: '1.4rem' }}>"도토리와 호두의 비" → 도토리 : 호두</p>
+          <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.35rem', lineHeight: '1.9rem' }}>문제에서 <b>먼저 말한 양</b>이 ":" 앞에 와요</p>
+          <div className="bg-white rounded-xl p-2 border-2 border-emerald-200 text-center">
+            <p className="font-display text-emerald-700" style={{ fontSize: '1.3rem' }}>
+              "<span className="text-orange-600">도토리</span>와 <span className="text-lime-700">풋사과</span>의 비" → <span className="text-orange-600">도토리</span> : <span className="text-lime-700">풋사과</span>
+            </p>
           </div>
         </Card>
 
-        <Card className="!p-5 bg-amber-50 border-amber-300">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="bg-amber-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-amber-900" style={{ fontSize: '1.6rem' }}>3</span></div>
-            <p className="font-display text-amber-800" style={{ fontSize: '1.7rem' }}>3 가지로 읽어요</p>
+        <Card className="!p-4 bg-amber-50 border-amber-300 flex flex-col justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-amber-200 rounded-full w-11 h-11 flex items-center justify-center"><span className="font-display text-amber-900" style={{ fontSize: '1.6rem' }}>3</span></div>
+            <p className="font-display text-amber-800" style={{ fontSize: '1.7rem' }}>4 가지로 읽어요</p>
           </div>
-          <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.2rem' }}>예) <b className="text-emerald-700" style={{ fontSize: '1.5rem' }}>3 : 5</b> 를 읽으면</p>
-          <div className="bg-white rounded-xl p-3 border-2 border-amber-300 space-y-2">
-            <p className="font-display text-amber-700" style={{ fontSize: '1.4rem' }}>① 3 대 5</p>
-            <p className="font-display text-amber-700" style={{ fontSize: '1.4rem' }}>② 3과 5의 비</p>
-            <p className="font-display text-amber-700" style={{ fontSize: '1.4rem' }}>③ 5에 대한 3의 비</p>
+          <p className="font-body text-stone-700" style={{ fontSize: '1.2rem' }}>
+            예) <span className="font-display"><span className="text-orange-600">3</span><span className="text-stone-700"> : </span><span className="text-lime-700">5</span></span> 를 읽으면
+          </p>
+          <div className="bg-white rounded-xl p-2 border-2 border-amber-300 space-y-1">
+            <p className="font-display text-amber-700" style={{ fontSize: '1.2rem' }}>① <span className="text-orange-600">3</span> 대 <span className="text-lime-700">5</span></p>
+            <p className="font-display text-amber-700" style={{ fontSize: '1.2rem' }}>② <span className="text-orange-600">3</span>과 <span className="text-lime-700">5</span>의 비</p>
+            <p className="font-display text-amber-700" style={{ fontSize: '1.2rem' }}>③ <span className="text-orange-600">3</span>의 <span className="text-lime-700">5</span>에 대한 비</p>
+            <p className="font-display text-amber-700" style={{ fontSize: '1.2rem' }}>④ <span className="text-lime-700">5</span>에 대한 <span className="text-orange-600">3</span>의 비</p>
           </div>
         </Card>
 
-        <Card className="!p-5 bg-rose-50 border-rose-200">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="bg-rose-200 rounded-full w-12 h-12 flex items-center justify-center"><span className="font-display text-rose-900" style={{ fontSize: '1.6rem' }}>4</span></div>
+        <Card className="!p-4 bg-rose-50 border-rose-200 flex flex-col justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-rose-200 rounded-full w-11 h-11 flex items-center justify-center"><span className="font-display text-rose-900" style={{ fontSize: '1.6rem' }}>4</span></div>
             <p className="font-display text-rose-800" style={{ fontSize: '1.7rem' }}>"~에 대한" = 기준!</p>
           </div>
-          <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.3rem' }}>
+          <p className="font-body text-stone-700" style={{ fontSize: '1.25rem', lineHeight: '1.8rem' }}>
             "<b className="text-emerald-700">~에 대한</b>" 뒤에 오는 양이 <b>기준량</b>이에요
           </p>
-          <div className="bg-white rounded-xl p-3 border-2 border-rose-200 text-center">
-            <p className="font-display text-rose-700" style={{ fontSize: '1.4rem' }}>"<b>5</b>에 대한 3의 비"</p>
-            <p className="font-body text-stone-600 mt-1" style={{ fontSize: '1.15rem' }}>→ 5가 기준 → <b className="text-rose-700">3 : 5</b></p>
+          <div className="bg-white rounded-xl p-2 border-2 border-rose-200">
+            <p className="font-display text-rose-700 text-center" style={{ fontSize: '1.2rem' }}>
+              "<b className="text-lime-700">5</b>에 대한 <span className="text-orange-600">3</span>의 비"
+            </p>
+            <p className="font-body text-stone-600 text-center mt-1" style={{ fontSize: '1.1rem' }}>
+              → <b className="text-lime-700">5</b>가 기준 → <span className="text-orange-600 font-display">3</span> : <span className="text-lime-700 font-display">5</span>
+            </p>
           </div>
         </Card>
       </div>
 
-      <div className="text-right mt-3">
+      <div className="text-right mt-2 flex-shrink-0">
         <Button onClick={() => setStep(3)}>연습하러 가기 <ArrowRight size={22} className="inline ml-1" /></Button>
       </div>
     </div>
@@ -1125,6 +1290,8 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
       setPracticeInputB('');
       setPracticeFeedback(null);
       setReadsShown({});
+      setReadsInput({});
+      setReadsCheckedAt(0);
     };
 
     const checkAnswer = () => {
@@ -1149,28 +1316,40 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
     };
 
     const toggleRead = (n) => setReadsShown(p => ({ ...p, [n]: !p[n] }));
-
     const a = acornCount, b = walnutCount;
+    const setRI = (k, v) => setReadsInput(p => ({ ...p, [k]: v }));
+    const checkRead = (got, expect) => {
+      const s = String(got || '').trim();
+      const e = String(expect).trim();
+      return s === e || s === koNum[expect];
+    };
+    const readsChecks = {
+      r1a: checkRead(readsInput.r1a, a), r1b: checkRead(readsInput.r1b, b),
+      r2a: checkRead(readsInput.r2a, a), r2b: checkRead(readsInput.r2b, b),
+      r3a: checkRead(readsInput.r3a, a), r3b: checkRead(readsInput.r3b, b),
+      r4a: checkRead(readsInput.r4a, b), r4b: checkRead(readsInput.r4b, a),
+    };
+    const allReadsCorrect = Object.values(readsChecks).every(Boolean);
 
     return (
-      <div className="animate-fade-up h-full flex flex-col px-8 pt-3 pb-3 overflow-hidden">
-        <div className="text-center mb-2">
+      <div className="animate-fade-up h-full flex flex-col px-8 pt-2 pb-2 overflow-hidden">
+        <div className="text-center mb-1">
           <h2 className="font-display text-amber-900" style={{ fontSize: '2.5rem' }}>
-            활동 {practiceStep + 1} {isFreeStyle ? '— 직접 만들어 보자!' : '— 비를 직접 써 봐요!'}
+            활동 {practiceStep + 1} {practiceStep === 0 ? '— 직접 만들어 보자!' : practiceStep === 1 ? '— 비를 직접 써 봐요!' : '— 4가지 읽기 직접 쓰기!'}
           </h2>
-          <p className="font-body text-stone-600" style={{ fontSize: '1.4rem' }}>
-            {isFreeStyle
-              ? '도토리와 호두를 놓고, 클릭하여 3가지로 읽어 봐요'
-              : '도토리와 호두를 놓은 다음, 비를 직접 써 보세요'}
+          <p className="font-body text-stone-600" style={{ fontSize: '1.5rem' }}>
+            {practiceStep === 0 && '도토리와 풋사과를 놓고, 클릭해서 4가지로 읽어 봐요'}
+            {practiceStep === 1 && '도토리와 풋사과를 놓은 다음, 비를 직접 써 보세요'}
+            {practiceStep === 2 && '비를 만들고, 4가지 읽기를 빈칸에 직접 써 보세요'}
           </p>
         </div>
 
         <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
-          {/* 좌측: 도토리/호두 +/- */}
+          {/* 좌측: 도토리/풋사과 +/- */}
           <div className="flex flex-col gap-3 min-h-0">
             <div className="bg-orange-50 rounded-2xl p-4 border-2 border-orange-200 flex-1 flex flex-col min-h-0">
               <div className="flex justify-between items-center mb-1">
-                <span className="font-display text-orange-700" style={{ fontSize: '1.7rem' }}>🌰 도토리</span>
+                <span className="font-display text-orange-700" style={{ fontSize: '2rem' }}>🌰 도토리</span>
                 <span className="font-display text-orange-700 bg-white rounded-full w-16 h-16 flex items-center justify-center border-2 border-orange-300" style={{ fontSize: '2.2rem' }}>{acornCount}</span>
               </div>
               <div className="relative flex-1 min-h-0">
@@ -1181,16 +1360,16 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { setAcornCount(Math.max(0, acornCount - 1)); setPracticeFeedback(null); setReadsShown({}); }}
+                <button onClick={() => { setAcornCount(Math.max(0, acornCount - 1)); setPracticeFeedback(null); setReadsShown({}); setReadsInput({}); }}
                   className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-800 font-display rounded-xl border-b-4 border-orange-300 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>−</button>
-                <button onClick={() => { if (acornCount < 9) { setAcornCount(acornCount + 1); setPracticeFeedback(null); setReadsShown({}); } }}
+                <button onClick={() => { if (acornCount < 9) { setAcornCount(acornCount + 1); setPracticeFeedback(null); setReadsShown({}); setReadsInput({}); } }}
                   className="flex-1 bg-orange-400 hover:bg-orange-500 text-white font-display rounded-xl border-b-4 border-orange-600 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>+</button>
               </div>
             </div>
             <div className="bg-amber-50 rounded-2xl p-4 border-2 border-amber-300 flex-1 flex flex-col min-h-0">
               <div className="flex justify-between items-center mb-1">
-                <span className="font-display text-amber-800" style={{ fontSize: '1.7rem' }}>🥜 호두</span>
-                <span className="font-display text-amber-800 bg-white rounded-full w-16 h-16 flex items-center justify-center border-2 border-amber-300" style={{ fontSize: '2.2rem' }}>{walnutCount}</span>
+                <span className="font-display text-lime-700" style={{ fontSize: '2rem' }}>🍏 풋사과</span>
+                <span className="font-display text-lime-700 bg-white rounded-full w-16 h-16 flex items-center justify-center border-2 border-lime-300" style={{ fontSize: '2.2rem' }}>{walnutCount}</span>
               </div>
               <div className="relative flex-1 min-h-0">
                 <div className="h-full flex flex-wrap gap-1 justify-center items-center px-3 py-1 content-center">
@@ -1200,27 +1379,27 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
-                <button onClick={() => { setWalnutCount(Math.max(0, walnutCount - 1)); setPracticeFeedback(null); setReadsShown({}); }}
+                <button onClick={() => { setWalnutCount(Math.max(0, walnutCount - 1)); setPracticeFeedback(null); setReadsShown({}); setReadsInput({}); }}
                   className="flex-1 bg-amber-100 hover:bg-amber-200 text-amber-800 font-display rounded-xl border-b-4 border-amber-300 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>−</button>
-                <button onClick={() => { if (walnutCount < 9) { setWalnutCount(walnutCount + 1); setPracticeFeedback(null); setReadsShown({}); } }}
+                <button onClick={() => { if (walnutCount < 9) { setWalnutCount(walnutCount + 1); setPracticeFeedback(null); setReadsShown({}); setReadsInput({}); } }}
                   className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-display rounded-xl border-b-4 border-amber-700 btn-shadow py-2" style={{ fontSize: '1.8rem' }}>+</button>
               </div>
             </div>
           </div>
 
           {/* 우측: 결과 / 입력 */}
-          <div className="flex items-center justify-center min-h-0">
+          <div className="flex items-center justify-center min-h-0 overflow-y-auto">
             {!ready && (
               <div className="bg-amber-50 rounded-2xl p-7 border-2 border-dashed border-amber-300 text-center w-full">
                 <div className="mb-3" style={{ fontSize: '4rem' }}>👈</div>
-                <p className="font-body text-amber-800" style={{ fontSize: '1.6rem', lineHeight: '2.4rem' }}>+ 버튼으로<br />도토리와 호두를 담아봐요</p>
+                <p className="font-body text-amber-900" style={{ fontSize: '1.8rem', lineHeight: '2.6rem' }}>+ 버튼으로<br /><span className="text-orange-600">도토리</span>와 <span className="text-lime-700">풋사과</span>를 담아봐요</p>
               </div>
             )}
 
-            {ready && !isFreeStyle && !correct && (
+            {ready && practiceStep !== 0 && !correct && (
               <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-200 w-full text-center">
-                <p className="font-body text-stone-700 mb-4" style={{ fontSize: '1.5rem' }}>
-                  <b className="text-orange-700">도토리</b>와 <b className="text-amber-700">호두</b>의 <b>비</b>를 써 봐요!
+                <p className="font-body text-stone-700 mb-4" style={{ fontSize: '1.7rem' }}>
+                  <b className="text-orange-700">도토리</b>와 <b className="text-lime-700">풋사과</b>의 <b>비</b>를 써 봐요!
                 </p>
                 <div className="flex items-center justify-center gap-2 mb-4">
                   <input type="text" inputMode="numeric" value={practiceInputA}
@@ -1230,43 +1409,95 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
                   <span className="font-display text-stone-700" style={{ fontSize: '2.4rem' }}>:</span>
                   <input type="text" inputMode="numeric" value={practiceInputB}
                     onChange={(e) => setPracticeInputB(e.target.value)}
-                    className="w-24 text-center font-display border-2 border-b-4 border-amber-400 rounded-xl py-2 outline-none focus:border-amber-600"
+                    className="w-24 text-center font-display border-2 border-b-4 border-lime-400 rounded-xl py-2 outline-none focus:border-lime-600"
                     style={{ fontSize: '2.4rem' }} placeholder="?" />
                 </div>
                 <Button onClick={checkAnswer} disabled={!practiceInputA || !practiceInputB}>확인 ✨</Button>
                 {practiceFeedback === 'wrong' && (
-                  <p className="font-body text-orange-700 mt-3 animate-shake" style={{ fontSize: '1.25rem' }}>
-                    💪 다시! <b>도토리</b>는 ":" 앞, <b>호두</b>는 ":" 뒤
+                  <p className="font-body text-orange-700 mt-3 animate-shake" style={{ fontSize: '1.3rem' }}>
+                    💪 다시! <b>도토리</b>는 ":" 앞, <b>풋사과</b>는 ":" 뒤
                   </p>
                 )}
               </div>
             )}
 
             {showResult && (
-              <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-300 w-full text-center animate-pop-in">
-                {!isFreeStyle && (
+              <div className="bg-emerald-50 rounded-2xl p-4 border-2 border-emerald-300 w-full text-center animate-pop-in">
+                {practiceStep !== 0 && (
                   <p className="font-display text-emerald-800 mb-1" style={{ fontSize: '1.7rem' }}>🎉 정답!</p>
                 )}
-                <p className="font-body text-stone-700 mb-1" style={{ fontSize: '1.4rem' }}>도토리와 호두의 비</p>
-                <p className="font-display text-emerald-700 my-1 leading-none" style={{ fontSize: '4.6rem' }}>{a} : {b}</p>
-                <p className="font-body text-stone-600 mt-3 mb-2" style={{ fontSize: '1.2rem' }}>👇 클릭해서 3가지로 읽어 봐요</p>
-                <div className="space-y-2">
-                  <button onClick={() => toggleRead(1)}
-                    className={`w-full rounded-lg py-3 px-3 border-2 transition-all font-display ${readsShown[1] ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-orange-200 text-stone-500 hover:bg-orange-50'}`}
-                    style={{ fontSize: '1.5rem' }}>
-                    {readsShown[1] ? `① ${koNum[a]} 대 ${koNum[b]}` : '① ___ 대 ___ (클릭)'}
-                  </button>
-                  <button onClick={() => toggleRead(2)}
-                    className={`w-full rounded-lg py-3 px-3 border-2 transition-all font-display ${readsShown[2] ? 'bg-emerald-100 border-emerald-400 text-emerald-800' : 'bg-white border-emerald-200 text-stone-500 hover:bg-emerald-50'}`}
-                    style={{ fontSize: '1.5rem' }}>
-                    {readsShown[2] ? `② ${a}과 ${b}의 비` : '② ___과 ___의 비 (클릭)'}
-                  </button>
-                  <button onClick={() => toggleRead(3)}
-                    className={`w-full rounded-lg py-3 px-3 border-2 transition-all font-display ${readsShown[3] ? 'bg-rose-100 border-rose-400 text-rose-800' : 'bg-white border-rose-200 text-stone-500 hover:bg-rose-50'}`}
-                    style={{ fontSize: '1.5rem' }}>
-                    {readsShown[3] ? `③ ${b}에 대한 ${a}의 비` : '③ ___에 대한 ___의 비 (클릭)'}
-                  </button>
+                <p className="font-body text-stone-700" style={{ fontSize: '1.5rem' }}>도토리와 풋사과의 비</p>
+                {/* 버튼형 수카드로 표시 */}
+                <div className="flex items-center justify-center gap-3 my-2">
+                  <span className="inline-flex items-center justify-center bg-orange-500 text-white rounded-2xl font-display border-b-4 border-orange-700 shadow-lg" style={{ width: '4.2rem', height: '4.2rem', fontSize: '2.8rem' }}>{a}</span>
+                  <span className="font-display text-stone-700" style={{ fontSize: '2.8rem' }}>:</span>
+                  <span className="inline-flex items-center justify-center bg-lime-500 text-white rounded-2xl font-display border-b-4 border-lime-700 shadow-lg" style={{ width: '4.2rem', height: '4.2rem', fontSize: '2.8rem' }}>{b}</span>
                 </div>
+
+                {/* 활동 1,2: 클릭해서 보기 / 활동 3: 직접 쓰기 */}
+                {practiceStep !== 2 ? (
+                  <>
+                    <p className="font-body text-stone-600 mt-2 mb-1.5" style={{ fontSize: '1.25rem' }}>👇 클릭해서 4가지로 읽어 봐요</p>
+                    <div className="space-y-1.5">
+                      <button onClick={() => toggleRead(1)}
+                        className={`w-full rounded-lg py-2 px-3 border-2 transition-all font-display ${readsShown[1] ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-orange-200 text-stone-500 hover:bg-orange-50'}`}
+                        style={{ fontSize: '1.45rem' }}>
+                        {readsShown[1] ? `① ${koNum[a]} 대 ${koNum[b]}` : '① ___ 대 ___ (클릭)'}
+                      </button>
+                      <button onClick={() => toggleRead(2)}
+                        className={`w-full rounded-lg py-2 px-3 border-2 transition-all font-display ${readsShown[2] ? 'bg-emerald-100 border-emerald-400 text-emerald-800' : 'bg-white border-emerald-200 text-stone-500 hover:bg-emerald-50'}`}
+                        style={{ fontSize: '1.45rem' }}>
+                        {readsShown[2] ? `② ${a}과 ${b}의 비` : '② ___과 ___의 비 (클릭)'}
+                      </button>
+                      <button onClick={() => toggleRead(3)}
+                        className={`w-full rounded-lg py-2 px-3 border-2 transition-all font-display ${readsShown[3] ? 'bg-amber-100 border-amber-400 text-amber-800' : 'bg-white border-amber-200 text-stone-500 hover:bg-amber-50'}`}
+                        style={{ fontSize: '1.45rem' }}>
+                        {readsShown[3] ? `③ ${a}의 ${b}에 대한 비` : '③ ___의 ___에 대한 비 (클릭)'}
+                      </button>
+                      <button onClick={() => toggleRead(4)}
+                        className={`w-full rounded-lg py-2 px-3 border-2 transition-all font-display ${readsShown[4] ? 'bg-rose-100 border-rose-400 text-rose-800' : 'bg-white border-rose-200 text-stone-500 hover:bg-rose-50'}`}
+                        style={{ fontSize: '1.45rem' }}>
+                        {readsShown[4] ? `④ ${b}에 대한 ${a}의 비` : '④ ___에 대한 ___의 비 (클릭)'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-body text-stone-600 mt-2 mb-1" style={{ fontSize: '1.2rem' }}>✏️ 빈칸에 알맞은 수를 직접 써 보세요</p>
+                    {[
+                      { idx: '①', expectA: a, expectB: b, ka: 'r1a', kb: 'r1b', tpl: (xa, xb) => <>{xa} 대 {xb}</> },
+                      { idx: '②', expectA: a, expectB: b, ka: 'r2a', kb: 'r2b', tpl: (xa, xb) => <>{xa}과 {xb}의 비</> },
+                      { idx: '③', expectA: a, expectB: b, ka: 'r3a', kb: 'r3b', tpl: (xa, xb) => <>{xa}의 {xb}에 대한 비</> },
+                      { idx: '④', expectA: b, expectB: a, ka: 'r4a', kb: 'r4b', tpl: (xa, xb) => <>{xa}에 대한 {xb}의 비</> },
+                    ].map((r, i) => {
+                      const okA = readsCheckedAt > 0 ? readsChecks[r.ka] : null;
+                      const okB = readsCheckedAt > 0 ? readsChecks[r.kb] : null;
+                      const inA = (
+                        <input type="text" value={readsInput[r.ka] || ''} onChange={(e) => setRI(r.ka, e.target.value)}
+                          className={`w-14 text-center font-display border-2 border-b-4 rounded-lg outline-none mx-1 ${okA === null ? 'border-amber-300 focus:border-amber-500' : okA ? 'border-emerald-400 bg-emerald-50' : 'border-rose-400 bg-rose-50'}`}
+                          style={{ fontSize: '1.3rem' }} placeholder="?" />
+                      );
+                      const inB = (
+                        <input type="text" value={readsInput[r.kb] || ''} onChange={(e) => setRI(r.kb, e.target.value)}
+                          className={`w-14 text-center font-display border-2 border-b-4 rounded-lg outline-none mx-1 ${okB === null ? 'border-amber-300 focus:border-amber-500' : okB ? 'border-emerald-400 bg-emerald-50' : 'border-rose-400 bg-rose-50'}`}
+                          style={{ fontSize: '1.3rem' }} placeholder="?" />
+                      );
+                      return (
+                        <div key={i} className="bg-white rounded-lg py-1.5 px-3 border-2 border-amber-200 flex items-center gap-2 font-display text-stone-700 mb-1.5" style={{ fontSize: '1.35rem' }}>
+                          <span className="text-amber-700">{r.idx}</span>
+                          <span className="flex items-center">{r.tpl(inA, inB)}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="mt-2 flex items-center justify-center gap-3">
+                      <Button onClick={() => setReadsCheckedAt(t => t + 1)}>정답 확인 ✨</Button>
+                      {readsCheckedAt > 0 && (allReadsCorrect ?
+                        <span className="font-display text-emerald-700" style={{ fontSize: '1.4rem' }}>🎉 모두 정답!</span> :
+                        <span className="font-display text-rose-700" style={{ fontSize: '1.2rem' }}>빨간칸을 다시 살펴봐요</span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1351,6 +1582,24 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
     setStep(0);
   };
 
+  const colorizeText = (text) => {
+    if (typeof text !== 'string') return text;
+    const regex = /(도토리\s*\d+\s*개?|풋사과\s*\d+\s*개?|도토리|풋사과)/g;
+    const result = [];
+    let lastIdx = 0;
+    let key = 0;
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+      if (m.index > lastIdx) result.push(<React.Fragment key={'t' + key++}>{text.slice(lastIdx, m.index)}</React.Fragment>);
+      const txt = m[0];
+      if (txt.startsWith('도토리')) result.push(<b key={'a' + key++} className="text-orange-600">{txt}</b>);
+      else if (txt.startsWith('풋사과')) result.push(<b key={'w' + key++} className="text-stone-800">{txt}</b>);
+      lastIdx = m.index + txt.length;
+    }
+    if (lastIdx < text.length) result.push(<React.Fragment key={'t' + key++}>{text.slice(lastIdx)}</React.Fragment>);
+    return <>{result}</>;
+  };
+
   const renderQuiz = () => {
     const q = selectedQuestions[qIndex];
     if (!q) return null;
@@ -1362,8 +1611,8 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
     };
 
     return (
-      <div className="animate-fade-up h-full flex items-center justify-center px-8">
-        <Card className="w-full max-w-5xl p-7">
+      <div className="animate-fade-up h-full flex items-center justify-center px-6 overflow-y-auto py-4">
+        <Card className="w-full max-w-6xl p-7">
           <div className="flex justify-between items-center mb-5">
             <span className="font-display text-amber-700 text-3xl">문제 {qIndex + 1} / {quizSize}</span>
             <div className="flex gap-2 flex-wrap max-w-md justify-end">
@@ -1373,17 +1622,23 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
             </div>
           </div>
 
-          <p className="font-body text-stone-800 text-4xl mb-5 leading-snug">{q.q}</p>
+          <p className="font-body text-stone-800 mb-5 leading-snug" style={{ fontSize: '2.8rem', lineHeight: '3.6rem', wordBreak: 'keep-all' }}>{colorizeText(q.q)}</p>
 
           {q.visual && (
             <div className="bg-amber-50 rounded-2xl p-4 mb-5 border-2 border-amber-200">
               <div className="flex items-center gap-3 flex-wrap mb-3">
                 <span className="font-display text-orange-700 text-3xl w-28">도토리</span>
-                {[...Array(q.visual.a)].map((_, i) => <Acorn key={i} size={48} />)}
+                <span className="font-display text-orange-700" style={{ fontSize: '2.4rem' }}>{q.visual.a}개</span>
+                <div className="flex items-center gap-1 flex-wrap ml-2">
+                  {[...Array(q.visual.a)].map((_, i) => <Acorn key={i} size={44} />)}
+                </div>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-display text-amber-800 text-3xl w-28">호두</span>
-                {[...Array(q.visual.w)].map((_, i) => <Walnut key={i} size={48} />)}
+                <span className="font-display text-lime-700 text-3xl w-28">풋사과</span>
+                <span className="font-display text-lime-700" style={{ fontSize: '2.4rem' }}>{q.visual.w}개</span>
+                <div className="flex items-center gap-1 flex-wrap ml-2">
+                  {[...Array(q.visual.w)].map((_, i) => <Walnut key={i} size={44} />)}
+                </div>
               </div>
             </div>
           )}
@@ -1402,11 +1657,16 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
                 <button key={i}
                   onClick={() => !feedback && handleAnswer(i)}
                   disabled={!!feedback}
-                  className={`font-display text-4xl px-3 py-7 rounded-2xl border-2 border-b-4 transition-all ${style}`}>
+                  className={`font-display px-3 py-7 rounded-2xl border-2 border-b-4 transition-all ${style}`}
+                  style={{ fontSize: '2.6rem' }}>
                   {opt}
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-5">
+            <ScratchPad key={'s1-q-' + qIndex} />
           </div>
         </Card>
       </div>
@@ -1476,12 +1736,12 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
         <div className="flex justify-center"><StarRow count={stars} size={56} /></div>
       </div>
       <Card className="flex-1 max-w-xl">
-        <h2 className="font-display text-4xl text-amber-900 mb-2">잘했어요! 🎉</h2>
-        <p className="font-body text-stone-700 text-xl">비의 숲을 통과했어요!</p>
-        <p className="font-body text-stone-600 text-base mt-2">{score} / 3 문제 정답</p>
+        <h2 className="font-display text-amber-900 mb-2" style={{ fontSize: '3.6rem' }}>잘했어요! 🎉</h2>
+        <p className="font-body text-stone-700" style={{ fontSize: '1.9rem', lineHeight: '2.6rem' }}>비의 숲을 통과했어요!</p>
+        <p className="font-body text-stone-600 mt-2" style={{ fontSize: '1.25rem' }}>{score} / 3 문제 정답</p>
         <div className="bg-amber-50 rounded-2xl p-5 mt-5 border-2 border-amber-200">
-          <p className="font-display text-amber-900 mb-2 text-lg">📚 오늘 배운 것</p>
-          <ul className="font-body text-stone-700 text-base space-y-1.5">
+          <p className="font-display text-amber-900 mb-3" style={{ fontSize: '1.7rem' }}>📚 오늘 배운 것</p>
+          <ul className="font-body text-stone-700 space-y-2" style={{ fontSize: '1.35rem', lineHeight: '2rem' }}>
             <li>• 두 양을 비교할 때 <b>"3 : 5"</b> 처럼 쓴 것을 <b>비</b>라고 해요</li>
             <li>• 기호 <b>":"</b> 를 사용해요</li>
             <li>• "삼 대 오" 또는 "3과 5의 비"라고 읽어요</li>
@@ -1499,7 +1759,7 @@ const Stage1 = ({ onHome, onComplete, onCorrect }) => {
       {showConfetti && <Confetti />}
       <TopBar
         onHome={onHome}
-        onBack={!showOverview ? goOverview : null}
+        onBack={!showOverview ? goBack : null}
         title="🌰 비의 숲"
         progress={showOverview ? '목차' : `${step === 0 ? 1 + introStep : step === 1 ? 3 + lessonStep : step + 3}/8`}
       />
@@ -1547,6 +1807,110 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [showOverview, setShowOverview] = useState(true);
   const [visitedCards, setVisitedCards] = useState(new Set());
+  const [priorCheck, setPriorCheck] = useState(null);
+  // 비율 lesson 내부 단계: 0 공식, 1 직사각형 비율, 2 축척
+  const [lessonStep, setLessonStep] = useState(0);
+  // 직사각형 비율 활동 — A와 B는 공통 비율(baseW:baseH)을 공유. 각 직사각형은 scale로 크기만 조절.
+  // 기본값: A는 작게, B는 크게 — 모양은 같지만 크기 차이가 한눈에 보이도록.
+  const [rectBase, setRectBase] = useState({ w: 5, h: 3 });
+  const [rectScaleA, setRectScaleA] = useState(1);
+  const [rectScaleB, setRectScaleB] = useState(2.5);
+  const [showRectPopup, setShowRectPopup] = useState(false);
+  // 축척 활동 — 문제 풀이 단계: 'calc'(1cm 거리 계산) → 'compare'(비교 질문) → 'done'(결론)
+  const [scaleStep, setScaleStep] = useState('calc');
+  const [scaleInputs, setScaleInputs] = useState({ park: '', forest: '', traffic: '' });
+  const [scaleCalcChecked, setScaleCalcChecked] = useState(false);
+  const [widerAns, setWiderAns] = useState('');
+  const [detailAns, setDetailAns] = useState('');
+  const [compareChecked, setCompareChecked] = useState(false);
+  // 비율 비교 문제 (과일 가게) — 200으로 통분
+  //   사과: 110/200 (이미 분모 200, 변환 불필요)
+  //   감: 160/400 = ?/200 → 80 (학생 입력)
+  //   winner: '사과'
+  const [fruitInputs, setFruitInputs] = useState({ persimNum: '', winner: '' });
+  const [fruitChecked, setFruitChecked] = useState(false);
+  const [showFruitCompare, setShowFruitCompare] = useState(false);
+  const [fruitRevealed, setFruitRevealed] = useState({ apple: false, persim: false });
+
+  // 분수↔소수 변환 활동 상태 (단계별 계산)
+  const [convMode, setConvMode] = useState('frac2dec'); // 'frac2dec' | 'dec2frac'
+  const [convIdx, setConvIdx] = useState(0);
+  // frac→dec 입력: numIn, denIn (나눗셈 식), decIn (결과)
+  const [convNumIn, setConvNumIn] = useState('');
+  const [convDenIn, setConvDenIn] = useState('');
+  const [convDecIn, setConvDecIn] = useState('');
+  // dec→frac 입력: midNum (분모 10/100의 분자), redNum/redDen (약분 결과)
+  const [convMidNum, setConvMidNum] = useState('');
+  const [convRedNum, setConvRedNum] = useState('');
+  const [convRedDen, setConvRedDen] = useState('');
+  const [convFeedback, setConvFeedback] = useState(null);
+  const [convShowHint, setConvShowHint] = useState(false);
+
+  // 변환 문제 풀
+  // base: 분모를 10/100 중 어떤 것으로 만들지 — dec→frac 단계에서 사용
+  const convProblemsF2D = [
+    { num: 1, den: 2, dec: 0.5 },
+    { num: 1, den: 4, dec: 0.25 },
+    { num: 3, den: 4, dec: 0.75 },
+    { num: 1, den: 5, dec: 0.2 },
+    { num: 2, den: 5, dec: 0.4 },
+    { num: 3, den: 5, dec: 0.6 },
+    { num: 4, den: 5, dec: 0.8 },
+    { num: 3, den: 10, dec: 0.3 },
+    { num: 7, den: 10, dec: 0.7 },
+    { num: 9, den: 20, dec: 0.45 },
+  ];
+  const convProblemsD2F = [
+    { dec: 0.5, base: 10, baseNum: 5, num: 1, den: 2 },
+    { dec: 0.2, base: 10, baseNum: 2, num: 1, den: 5 },
+    { dec: 0.4, base: 10, baseNum: 4, num: 2, den: 5 },
+    { dec: 0.6, base: 10, baseNum: 6, num: 3, den: 5 },
+    { dec: 0.8, base: 10, baseNum: 8, num: 4, den: 5 },
+    { dec: 0.3, base: 10, baseNum: 3, num: 3, den: 10 },
+    { dec: 0.7, base: 10, baseNum: 7, num: 7, den: 10 },
+    { dec: 0.25, base: 100, baseNum: 25, num: 1, den: 4 },
+    { dec: 0.75, base: 100, baseNum: 75, num: 3, den: 4 },
+    { dec: 0.45, base: 100, baseNum: 45, num: 9, den: 20 },
+  ];
+
+  const convProblems = convMode === 'frac2dec' ? convProblemsF2D : convProblemsD2F;
+  const convCurrent = convProblems[convIdx % convProblems.length];
+
+  const resetConvInput = () => {
+    setConvNumIn(''); setConvDenIn(''); setConvDecIn('');
+    setConvMidNum(''); setConvRedNum(''); setConvRedDen('');
+    setConvFeedback(null); setConvShowHint(false);
+  };
+
+  const checkConv = () => {
+    if (convMode === 'frac2dec') {
+      // 단계1: num ÷ den 식이 맞는지
+      const n = parseInt(convNumIn, 10);
+      const d = parseInt(convDenIn, 10);
+      const dec = parseFloat(convDecIn);
+      const okStep1 = n === convCurrent.num && d === convCurrent.den;
+      const okStep2 = !isNaN(dec) && Math.abs(dec - convCurrent.dec) < 0.0001;
+      if (okStep1 && okStep2) setConvFeedback('correct');
+      else setConvFeedback('wrong');
+    } else {
+      // 단계1: 분모 10/100인 분수
+      const mid = parseInt(convMidNum, 10);
+      // 단계2: 약분된 분수
+      const rn = parseInt(convRedNum, 10);
+      const rd = parseInt(convRedDen, 10);
+      const okStep1 = mid === convCurrent.baseNum;
+      const okStep2 = !isNaN(rn) && !isNaN(rd) && rd !== 0 && Math.abs(rn / rd - convCurrent.dec) < 0.0001 && rn === convCurrent.num && rd === convCurrent.den;
+      if (okStep1 && okStep2) setConvFeedback('correct');
+      else setConvFeedback('wrong');
+    }
+  };
+
+  const nextConvProblem = () => {
+    setConvIdx(i => (i + 1) % convProblems.length);
+    resetConvInput();
+  };
+
+  const switchConvMode = (m) => { setConvMode(m); setConvIdx(0); resetConvInput(); };
 
   const overviewCards = [
     { id: 1, icon: '📖', title: '문제 상황', step: 0 },
@@ -1563,6 +1927,22 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
   };
 
   const goOverview = () => setShowOverview(true);
+
+  const goBack = () => {
+    if (step === 0) setShowOverview(true);
+    else if (step === 1) {
+      if (lessonStep > 0) setLessonStep(lessonStep - 1);
+      else setStep(0);
+    } else if (step === 2) { setStep(1); setLessonStep(2); }
+    else if (step === 3) {
+      if (practiceStep > 0) setPracticeStep(practiceStep - 1);
+      else setStep(2);
+    } else if (step === 4) {
+      if (quizSize) { setQuizSize(null); setSelectedQuestions([]); setQIndex(0); setQAnswers([]); setFeedback(null); }
+      else setStep(3);
+    } else if (step === 5) setStep(4);
+    else setShowOverview(true);
+  };
 
   const ratioDecimal = Math.round((a / b) * 1000) / 1000;
 
@@ -1593,34 +1973,18 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
     </span>
   );
 
+  // 실생활 비율 문제 10문제
   const quizPool = [
-    { q: '"4 대 7"의 비에서 기준량은 무엇일까요?', options: ['4', '7', '11', '3'], answer: 1, explanation: HINT_BASE },
-    { q: '"5 : 9"의 비에서 비교하는 양은 무엇일까요?', options: ['5', '9', '14', '4'], answer: 0, explanation: HINT_BASE },
-    { q: '"8 : 3"의 비에서 기준량은 무엇일까요?', options: ['8', '3', '11', '5'], answer: 1, explanation: HINT_BASE },
-    { q: '"2 : 5"를 분수로 나타내면?', options: ['2/5', '5/2', '2/7', '7/2'], answer: 0, explanation: HINT_FRAC },
-    { q: <>비율 <Fraction num="1" den="2" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.12', '0.2', '0.5', '1.2'], answer: 2, explanation: HINT_DEC },
-    { q: '"7 : 4"의 비에서 비교하는 양은?', options: ['4', '7', '11', '3'], answer: 1, explanation: HINT_BASE },
-    { q: <>비율 <Fraction num="1" den="4" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.14', '0.25', '0.4', '0.75'], answer: 1, explanation: HINT_DEC },
-    { q: '"9 : 5"를 분수로 나타내면?', options: ['5/9', '9/5', '9/14', '5/14'], answer: 1, explanation: HINT_FRAC },
-    { q: <>비율 <Fraction num="1" den="5" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.15', '0.2', '0.5', '1.5'], answer: 1, explanation: HINT_DEC },
-    { q: '"6 : 8"의 비에서 기준량은?', options: ['6', '8', '14', '2'], answer: 1, explanation: HINT_BASE },
-    { q: <>비율 <Fraction num="3" den="10" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.03', '0.3', '3.10', '10.3'], answer: 1, explanation: HINT_DEC },
-    { q: '"3 : 7"의 비에서 비교하는 양은?', options: ['7', '3', '10', '4'], answer: 1, explanation: HINT_BASE },
-    { q: <>비율 <Fraction num="7" den="10" color="currentColor" size="2rem" />을 소수로 나타내면?</>, options: ['0.07', '0.7', '7.10', '0.107'], answer: 1, explanation: HINT_DEC },
-    { q: '"9 : 2"를 분수로 나타내면?', options: ['2/9', '9/2', '9/11', '2/11'], answer: 1, explanation: HINT_FRAC },
-    { q: '"5 : 8"의 비에서 기준량은?', options: ['5', '8', '13', '3'], answer: 1, explanation: HINT_BASE },
-    { q: <>비율 <Fraction num="2" den="5" color="currentColor" size="2rem" />를 소수로 나타내면?</>, options: ['0.25', '0.4', '0.52', '0.5'], answer: 1, explanation: HINT_DEC },
-    { q: '"4 : 1"의 비에서 비교하는 양은?', options: ['1', '4', '5', '3'], answer: 1, explanation: HINT_BASE },
-    { q: '"6 : 11"을 분수로 나타내면?', options: ['11/6', '6/11', '6/17', '11/17'], answer: 1, explanation: HINT_FRAC },
-    { q: <>비율 <Fraction num="3" den="4" color="currentColor" size="2rem" />를 소수로 나타내면?</>, options: ['0.34', '0.43', '0.75', '1.33'], answer: 2, explanation: HINT_DEC },
-    { q: '"1 : 10"의 비에서 기준량은?', options: ['1', '10', '11', '9'], answer: 1, explanation: HINT_BASE },
-    { q: '비율 0.6을 분수로 나타내면?', options: ['1/6', '3/5', '6/5', '5/6'], answer: 1, explanation: HINT_FRAC_FROM_DEC },
-    { q: '비율 0.25를 분수로 나타내면?', options: ['1/4', '1/25', '25/10', '4/1'], answer: 0, explanation: HINT_FRAC_FROM_DEC },
-    { q: '비율 0.4를 분수로 나타내면?', options: ['1/4', '4/1', '2/5', '5/2'], answer: 2, explanation: HINT_FRAC_FROM_DEC },
-    { q: '비율 0.75를 분수로 나타내면?', options: ['7/5', '3/4', '4/3', '7/50'], answer: 1, explanation: HINT_FRAC_FROM_DEC },
-    { q: '비율 0.5를 분수로 나타내면?', options: ['1/2', '1/5', '5/1', '2/1'], answer: 0, explanation: HINT_FRAC_FROM_DEC },
-    { q: '비율 0.2를 분수로 나타내면?', options: ['1/2', '2/1', '1/5', '5/2'], answer: 2, explanation: HINT_FRAC_FROM_DEC },
-    { q: '비율 0.8을 분수로 나타내면?', options: ['8/1', '1/8', '4/5', '5/4'], answer: 2, explanation: HINT_FRAC_FROM_DEC },
+    { q: '👓 우리 반 학생 25명 중 5명이 안경을 써요. 전체 학생 수에 대한 안경 쓴 학생 수의 비율을 분수로 나타내면?', options: ['5/25', '25/5', '5/20', '20/5'], answer: 0, explanation: HINT_FRAC },
+    { q: '📐 가로 10cm, 세로 6cm 직사각형이 있어요. 가로에 대한 세로의 비율을 소수로 나타내면?', options: ['0.6', '1.6', '0.4', '6'], answer: 0, explanation: HINT_DEC },
+    { q: '🚗 자동차가 2시간 동안 120 km를 갔어요. 걸린 시간에 대한 간 거리의 비율(시간당 거리)은?', options: ['60', '120', '240', '2'], answer: 0, explanation: <>비교하는 양(간 거리) ÷ 기준량(걸린 시간)을 계산해요. 120 ÷ 2 = ?</> },
+    { q: '🗺️ 축척이 1 : 50000인 지도가 있어요. 지도에서 1cm는 실제로 몇 m일까요?', options: ['50 m', '500 m', '5000 m', '50000 m'], answer: 1, explanation: <>1 : 50000은 지도 1cm가 실제 50000cm. 50000cm = 500m 예요.</> },
+    { q: '🎨 빨간 페인트 3컵에 흰 페인트 7컵을 섞었어요. 흰 페인트에 대한 빨간 페인트의 비율을 분수로?', options: ['3/7', '7/3', '3/10', '7/10'], answer: 0, explanation: HINT_FRAC },
+    { q: '🏫 우리 반 30명 중 18명이 도보로 등교해요. 도보 등교생의 비율을 소수로 나타내면?', options: ['0.18', '0.3', '0.6', '1.8'], answer: 2, explanation: HINT_DEC },
+    { q: '🍫 8조각으로 자른 초콜릿 중 3조각을 먹었어요. 먹은 양에 대한 남은 양의 비율을 분수로?', options: ['3/5', '5/3', '3/8', '5/8'], answer: 1, explanation: <>먹은 양 3, 남은 양 5. 기준량(먹은 양) 3, 비교하는 양(남은 양) 5 → 5/3</> },
+    { q: '🚲 자전거 동호회 회원 40명 중 16명이 어린이예요. 전체 회원 수에 대한 어린이 수의 비율을 분수로(약분 가능)?', options: ['2/5', '5/2', '16/24', '2/3'], answer: 0, explanation: <>16/40 = 2/5 (8로 약분)</> },
+    { q: '🏞️ 산책로 안내 지도가 1 : 30000이에요. 지도에서 5cm는 실제로 몇 m일까요?', options: ['150 m', '1500 m', '15000 m', '500 m'], answer: 1, explanation: <>5 × 30000 = 150000cm = 1500m</> },
+    { q: '🏀 가로 6m, 세로 4m의 농구 코트 그림. 가로에 대한 세로의 비율을 소수로 나타내면?', options: ['0.4', '0.667', '0.67', '1.5'], answer: 1, explanation: <>4 ÷ 6 ≈ 0.667 (분수로는 2/3)</> },
   ];
 
   const score = qAnswers.filter(Boolean).length;
@@ -1634,30 +1998,95 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
         <Squirrel size={220} mood="thinking" />
       </div>
       <Card className="flex-1 max-w-4xl !p-8">
-        <h2 className="font-display text-amber-900 mb-4" style={{ fontSize: '2.9rem' }}>다람쥐의 새로운 호기심 📊</h2>
+        <h2 className="font-display text-amber-900 mb-3" style={{ fontSize: '2.9rem' }}>다람쥐의 새로운 호기심 📊</h2>
+
+        {/* 사전 확인: 이미 알고 있는 내용 (비) */}
+        <div className="bg-orange-50 rounded-2xl p-4 mb-3 border-2 border-orange-200">
+          <p className="font-display text-orange-800 mb-2" style={{ fontSize: '1.4rem' }}>✅ 시작 전, 잠깐 확인!</p>
+          <p className="font-body text-stone-700 mb-2" style={{ fontSize: '1.4rem', lineHeight: '2rem' }}>
+            <b className="text-orange-700">도토리 3개</b>와 <b className="text-lime-700">풋사과 5개</b>의 비를 어떻게 쓸까요?
+          </p>
+          <p className="font-body text-stone-500 mb-2" style={{ fontSize: '1.1rem' }}>👇 아래 보기 중에서 정답이라고 생각하는 <b>버튼을 눌러</b> 확인해 봐요!</p>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { label: '3 : 5', ok: true },
+              { label: '5 : 3', ok: false },
+            ].map(opt => {
+              const isAns = priorCheck === opt.label;
+              let style = 'bg-white border-orange-300 hover:bg-orange-100 text-stone-800';
+              if (isAns && opt.ok) style = 'bg-emerald-100 border-emerald-400 text-emerald-800 animate-pop-in';
+              else if (isAns) style = 'bg-rose-100 border-rose-400 text-rose-800 animate-shake';
+              return (
+                <button key={opt.label} onClick={() => setPriorCheck(opt.label)}
+                  className={`font-display rounded-xl border-2 border-b-4 px-4 py-2 transition-all ${style}`}
+                  style={{ fontSize: '1.5rem' }}>
+                  <span>
+                    <span className="text-orange-600">{opt.label.split(':')[0].trim()}</span>
+                    <span className="text-stone-600"> : </span>
+                    <span className="text-lime-700">{opt.label.split(':')[1].trim()}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {priorCheck === '3 : 5' && (
+            <p className="font-body text-emerald-700 mt-2 animate-fade-up" style={{ fontSize: '1.15rem' }}>👍 잘 기억하고 있어요! 먼저 말한 양이 ":" 앞에 와요.</p>
+          )}
+          {priorCheck && priorCheck !== '3 : 5' && (
+            <p className="font-body text-rose-700 mt-2 animate-fade-up" style={{ fontSize: '1.15rem' }}>다시 생각해 봐요. 먼저 말한 <b>도토리</b>가 ":" 앞이에요.</p>
+          )}
+        </div>
+
         <p className="font-body text-stone-700 leading-relaxed" style={{ fontSize: '1.6rem', lineHeight: '2.6rem' }}>
-          가을이 한층 더 깊어진 어느 날,<br/>
-          다람쥐는 <b className="text-orange-600">도토리 3개</b>와 <b className="text-emerald-700">호두 5개</b>를 가지런히 놓아 보았어요.<br/>
-          "비로 쓰면 <span className="font-display text-orange-600">3 : 5</span> 인 건 알았는데..."
+          비로 쓰면 <span className="font-display"><span className="text-orange-600">3</span> : <span className="text-lime-700">5</span></span> 인 건 알았는데...
         </p>
-        <div className="bg-amber-50 rounded-2xl p-6 mt-5 border-2 border-amber-200">
+        <div className="bg-amber-50 rounded-2xl p-5 mt-4 border-2 border-amber-200">
           <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.7rem', lineHeight: '2.8rem' }}>
-            🤔 다람쥐는 더 궁금해졌어요.<br/>
-            <b>"도토리는 호두에 비해 얼마인 걸까?"</b><br/>
-            비를 <b>한 가지 수</b>로 나타낼 수는 없을까요?
+            🤔 비를 <b>더 편하게</b> 나타낼 수는 없을까?<br/>
+            <b>한 가지 수</b>로 나타낼 수 있다면 두 양을 비교하기가 훨씬 쉬울 거예요.
           </p>
         </div>
-        <div className="text-right mt-6">
+        <div className="text-right mt-5">
           <Button onClick={() => setStep(1)}>비율 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
         </div>
       </Card>
     </div>
   );
 
-  const renderLesson = () => (
-    <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-4 overflow-hidden">
-      <h2 className="font-display text-3xl text-amber-900 text-center mb-1">비율로 바꾸기</h2>
-      <p className="font-body text-stone-600 text-center mb-3 text-xl">
+  const renderLesson = () => {
+    // 두 직사각형은 항상 baseW : baseH 의 같은 비율을 유지
+    const rectA = { w: rectBase.w * rectScaleA, h: rectBase.h * rectScaleA };
+    const rectB = { w: rectBase.w * rectScaleB, h: rectBase.h * rectScaleB };
+    const ratioA = (rectA.h / rectA.w).toFixed(2);
+    const ratioB = (rectB.h / rectB.w).toFixed(2);
+
+    // 축척 활동 — 정답표
+    const scaleMaps = [
+      { key: 'park', emoji: '🚶', name: '공원 산책로 안내지도', scale: 30000, real: 300, col: 'orange' },
+      { key: 'forest', emoji: '🌲', name: '휴양림 안내 지도', scale: 50000, real: 500, col: 'emerald' },
+      { key: 'traffic', emoji: '🚗', name: '교통 지도', scale: 100000, real: 1000, col: 'rose' },
+    ];
+    const scaleAllOk = scaleMaps.every(m => parseFloat(scaleInputs[m.key]) === m.real);
+    const widerOk = widerAns === 'traffic';
+    const detailOk = detailAns === 'park';
+
+    return (
+    <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-3 overflow-hidden min-h-0">
+      {/* 단계 표시 */}
+      <div className="flex items-center justify-center gap-2 mb-2">
+        {[0, 1, 2].map(s => (
+          <button key={s} onClick={() => setLessonStep(s)}
+            className={`rounded-full font-display transition-all ${lessonStep === s ? 'bg-orange-500 text-white px-4 py-1.5' : 'bg-amber-100 text-amber-800 px-3 py-1'}`}
+            style={{ fontSize: '0.95rem' }}>
+            {s + 1}. {s === 0 ? '비율이란?' : s === 1 ? '직사각형 비교' : '축척(실생활)'}
+          </button>
+        ))}
+      </div>
+
+      {lessonStep === 0 && (
+      <>
+      <h2 className="font-display text-3xl text-amber-900 text-center">비율로 바꾸기</h2>
+      <p className="font-body text-stone-600 text-center mb-2 text-xl">
         기준량에 대한 비교하는 양의 크기를 <span className="font-bold text-orange-700">비율</span>이라고 해요
       </p>
 
@@ -1739,10 +2168,322 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
       </div>
 
       <div className="text-right mt-3">
+        <Button onClick={() => setLessonStep(1)}>다음: 직사각형으로 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+      </div>
+      </>
+      )}
+
+      {lessonStep === 1 && (
+      <>
+      <h2 className="font-display text-amber-900 text-center" style={{ fontSize: '2rem' }}>직사각형으로 비율 비교하기 📐</h2>
+      <p className="font-body text-stone-600 text-center mb-2" style={{ fontSize: '1.15rem' }}>
+        💡 <b className="text-emerald-700">비율이 같으면 모양도 같아요. 크기만 달라질 뿐이에요!</b>
+      </p>
+
+      {/* 모양(기본 비율) 선택 — 다양한 모양 체험 */}
+      <div className="flex items-center justify-center gap-2 mb-2">
+        <span className="font-body text-stone-700" style={{ fontSize: '1.05rem' }}>모양 골라보기:</span>
+        {[
+          { w: 5, h: 3, label: '5 : 3' },
+          { w: 4, h: 3, label: '4 : 3' },
+          { w: 2, h: 3, label: '2 : 3' },
+          { w: 3, h: 5, label: '3 : 5' },
+        ].map(s => {
+          const sel = rectBase.w === s.w && rectBase.h === s.h;
+          return (
+            <button key={s.label} onClick={() => setRectBase({ w: s.w, h: s.h })}
+              className={`font-display rounded-lg border-2 border-b-4 px-3 py-1 transition-all ${sel ? 'bg-amber-500 text-white border-amber-700 shadow' : 'bg-white text-stone-700 border-amber-300'}`}
+              style={{ fontSize: '1.05rem' }}>{s.label}</button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+        {/* 직사각형 A — 주황 (작게) */}
+        <Card className="!p-3 bg-orange-50 border-orange-200 flex flex-col">
+          <p className="font-display text-orange-800 text-center mb-1" style={{ fontSize: '1.4rem' }}>직사각형 A <span className="text-stone-500" style={{ fontSize: '1rem' }}>(작은 크기)</span></p>
+          <div className="flex-1 flex items-center justify-center mb-1">
+            <div className="relative">
+              <div className="bg-orange-200 border-4 border-orange-500 rounded-lg shadow transition-all"
+                style={{ width: `${rectA.w * 13}px`, height: `${rectA.h * 13}px` }} />
+              <span className="absolute -top-7 left-1/2 -translate-x-1/2 font-display text-orange-700" style={{ fontSize: '1.05rem' }}>{rectA.w.toFixed(1)} cm</span>
+              <span className="absolute -right-14 top-1/2 -translate-y-1/2 font-display text-orange-700" style={{ fontSize: '1.05rem' }}>{rectA.h.toFixed(1)} cm</span>
+            </div>
+          </div>
+          <div className="mb-1">
+            <p className="font-body text-orange-700 text-center" style={{ fontSize: '0.95rem' }}>크기 배율 ×{rectScaleA.toFixed(1)}</p>
+            <input type="range" min="1" max="3" step="0.1" value={rectScaleA} onChange={(e) => setRectScaleA(+e.target.value)} className="w-full" style={{ touchAction: 'manipulation' }} />
+          </div>
+          <div className="bg-white rounded-xl p-1.5 border-2 border-amber-200 text-center">
+            <p className="font-body text-stone-600" style={{ fontSize: '0.85rem' }}>가로에 대한 세로의 비율</p>
+            <div className="flex items-center justify-center gap-2">
+              <Fraction num={String(rectA.h.toFixed(1))} den={String(rectA.w.toFixed(1))} color="#047857" size="1.2rem" />
+              <span className="font-display text-stone-500" style={{ fontSize: '1rem' }}>=</span>
+              <span className="font-display text-orange-700" style={{ fontSize: '1.4rem' }}>{ratioA}</span>
+            </div>
+          </div>
+        </Card>
+        {/* 직사각형 B — 에메랄드 (크게) */}
+        <Card className="!p-3 bg-emerald-50 border-emerald-200 flex flex-col">
+          <p className="font-display text-emerald-800 text-center mb-1" style={{ fontSize: '1.4rem' }}>직사각형 B <span className="text-stone-500" style={{ fontSize: '1rem' }}>(큰 크기)</span></p>
+          <div className="flex-1 flex items-center justify-center mb-1">
+            <div className="relative">
+              <div className="bg-emerald-200 border-4 border-emerald-500 rounded-lg shadow transition-all"
+                style={{ width: `${rectB.w * 13}px`, height: `${rectB.h * 13}px` }} />
+              <span className="absolute -top-7 left-1/2 -translate-x-1/2 font-display text-emerald-700" style={{ fontSize: '1.05rem' }}>{rectB.w.toFixed(1)} cm</span>
+              <span className="absolute -right-14 top-1/2 -translate-y-1/2 font-display text-emerald-700" style={{ fontSize: '1.05rem' }}>{rectB.h.toFixed(1)} cm</span>
+            </div>
+          </div>
+          <div className="mb-1">
+            <p className="font-body text-emerald-700 text-center" style={{ fontSize: '0.95rem' }}>크기 배율 ×{rectScaleB.toFixed(1)}</p>
+            <input type="range" min="1.5" max="4" step="0.1" value={rectScaleB} onChange={(e) => setRectScaleB(+e.target.value)} className="w-full" style={{ touchAction: 'manipulation' }} />
+          </div>
+          <div className="bg-white rounded-xl p-1.5 border-2 border-amber-200 text-center">
+            <p className="font-body text-stone-600" style={{ fontSize: '0.85rem' }}>가로에 대한 세로의 비율</p>
+            <div className="flex items-center justify-center gap-2">
+              <Fraction num={String(rectB.h.toFixed(1))} den={String(rectB.w.toFixed(1))} color="#047857" size="1.2rem" />
+              <span className="font-display text-stone-500" style={{ fontSize: '1rem' }}>=</span>
+              <span className="font-display text-emerald-700" style={{ fontSize: '1.4rem' }}>{ratioB}</span>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* 결론 안내 — 항상 보이게 (팝업 외에도) */}
+      <div className="bg-emerald-100 rounded-xl p-2 border-2 border-emerald-400 mt-2 text-center">
+        <p className="font-display text-emerald-900" style={{ fontSize: '1.15rem' }}>
+          ✨ A({rectA.w.toFixed(1)}×{rectA.h.toFixed(1)})와 B({rectB.w.toFixed(1)}×{rectB.h.toFixed(1)})는 <b>크기는 다르지만</b> 비율은 모두 <b className="text-orange-700">{ratioA}</b> — <b>같은 모양</b>이에요!
+        </p>
+      </div>
+
+      <div className="flex justify-end mt-3 items-center gap-3">
+        <Button onClick={() => setShowRectPopup(true)} variant="soft">📌 정리 보기</Button>
+        <Button onClick={() => setLessonStep(2)}>다음: 축척 <ArrowRight size={22} className="inline ml-1" /></Button>
+      </div>
+
+      {/* 정리 메시지 팝업 */}
+      {showRectPopup && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="bg-white rounded-3xl p-8 max-w-2xl w-full card-shadow border-4 border-emerald-400 text-center animate-pop-in">
+            <div className="text-6xl mb-3">✨</div>
+            <h3 className="font-display text-emerald-700 mb-3" style={{ fontSize: '2.2rem' }}>같은 비율 = 같은 모양!</h3>
+            <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.5rem', lineHeight: '2.2rem' }}>
+              <b className="text-orange-700">A</b>는 작고 <b className="text-emerald-700">B</b>는 크지만,<br/>
+              <b>가로에 대한 세로의 비율</b>은 둘 다 <span className="font-display text-stone-800" style={{ fontSize: '1.8rem' }}>{ratioA}</span> 으로 <b className="text-emerald-700">같아요!</b>
+            </p>
+            <div className="bg-emerald-50 rounded-xl p-3 border-2 border-emerald-300 mb-4">
+              <p className="font-display text-emerald-800" style={{ fontSize: '1.3rem', lineHeight: '1.9rem' }}>
+                👉 <b>가로와 세로의 비율이 같으면</b><br/>
+                <b className="text-orange-700">크기만 달라질 뿐</b>, <b className="text-emerald-700">모양은 똑같답니다.</b>
+              </p>
+            </div>
+            <Button onClick={() => setShowRectPopup(false)}>알겠어요!</Button>
+          </div>
+        </div>
+      )}
+      </>
+      )}
+
+      {lessonStep === 2 && (
+      <>
+      <h2 className="font-display text-amber-900 text-center" style={{ fontSize: '2.8rem' }}>축척 — 어느 지도가 더 자세할까요? 🗺️</h2>
+      <p className="font-body text-stone-600 text-center mb-2" style={{ fontSize: '1.5rem' }}>
+        세 지도의 축척을 보고, <b className="text-orange-700">지도 1cm 가 실제 몇 m</b> 인지 직접 계산해서 알아봐요!
+      </p>
+
+      {/* 진행 단계 표시 */}
+      <div className="flex items-center justify-center gap-2 mb-2">
+        {[{ k: 'calc', label: '① 1cm 거리 계산' }, { k: 'compare', label: '② 비교해 보기' }, { k: 'done', label: '③ 결론' }].map(s => (
+          <span key={s.k}
+            className={`font-display rounded-full px-4 py-1 transition-all ${scaleStep === s.k ? 'bg-orange-500 text-white' : 'bg-amber-100 text-amber-800'}`}
+            style={{ fontSize: '1.2rem' }}>{s.label}</span>
+        ))}
+      </div>
+
+      {/* 단계 1: 1cm 거리 계산 — 좌(힌트) | 우(세 지도) 2칼 레이아웃 */}
+      {scaleStep === 'calc' && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 grid grid-cols-5 gap-3 min-h-0">
+            {/* 좌측 힌트 — 2/5 */}
+            <Card className="col-span-2 !p-4 bg-white border-amber-300 flex flex-col justify-center gap-3">
+              <p className="font-display text-amber-900 text-center" style={{ fontSize: '1.7rem' }}>💭 힌트</p>
+              <div className="bg-emerald-50 rounded-2xl p-4 border-2 border-emerald-300 text-center">
+                <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem', lineHeight: '2.6rem' }}>1 m = <b>100 cm</b></p>
+                <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem', lineHeight: '2.6rem' }}>1 km = <b>1000 m</b></p>
+              </div>
+              <p className="font-body text-stone-600 text-center" style={{ fontSize: '1.15rem', lineHeight: '1.7rem' }}>
+                📝 각 지도의 <b className="text-orange-700">지도 1 cm 가 실제 몇 m</b> 인지 오른쪽 빈칸에 직접 적어 봐요.
+              </p>
+            </Card>
+
+            {/* 우측 세 지도 — 3/5 */}
+            <Card className="col-span-3 !p-4 bg-amber-50 border-amber-300 flex flex-col gap-2 justify-center">
+              {scaleMaps.map(m => {
+                const v = parseFloat(scaleInputs[m.key]);
+                const ok = scaleCalcChecked && v === m.real;
+                const bad = scaleCalcChecked && (isNaN(v) || v !== m.real);
+                const colMap = { orange: 'bg-orange-100 border-orange-300', emerald: 'bg-emerald-100 border-emerald-300', rose: 'bg-rose-100 border-rose-300' };
+                const realCm = m.scale.toLocaleString();
+                return (
+                  <div key={m.key} className={`rounded-xl border-2 px-3 py-2 ${colMap[m.col]}`}>
+                    <div className="flex items-center gap-3 flex-wrap mb-1">
+                      <span className="font-display" style={{ fontSize: '1.35rem' }}>{m.emoji} {m.name}</span>
+                      <span className="font-display text-stone-700" style={{ fontSize: '1.2rem' }}>축척 <b>1 : {realCm}</b></span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-body text-stone-700" style={{ fontSize: '1.2rem' }}>지도 1 cm = 실제 <b>{realCm} cm</b> = ?</span>
+                      <input type="text" inputMode="decimal" value={scaleInputs[m.key]}
+                        onChange={(e) => { setScaleInputs({ ...scaleInputs, [m.key]: e.target.value }); setScaleCalcChecked(false); }}
+                        className={`text-center font-display border-2 border-b-4 rounded-lg outline-none ${ok ? 'border-emerald-500 bg-emerald-50' : bad ? 'border-rose-500 bg-rose-50' : 'border-amber-400 focus:border-amber-600'}`}
+                        style={{ width: '6rem', fontSize: '1.5rem' }} placeholder="?" />
+                      <span className="font-body text-stone-700" style={{ fontSize: '1.2rem' }}>m</span>
+                      {ok && (
+                        <span className="font-display text-emerald-700" style={{ fontSize: '1.2rem' }}>
+                          ✓ {m.real === 1000 ? '= 1 km' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <Button onClick={() => setScaleCalcChecked(true)}
+              disabled={!scaleInputs.park || !scaleInputs.forest || !scaleInputs.traffic}>정답 확인 ✨</Button>
+            {scaleCalcChecked && scaleAllOk && (
+              <Button onClick={() => setScaleStep('compare')} variant="secondary">다음: 비교해 보기 →</Button>
+            )}
+          </div>
+          {scaleCalcChecked && !scaleAllOk && (
+            <p className="font-body text-rose-700 text-center mt-1" style={{ fontSize: '1.2rem' }}>빨간색 칸을 다시 살펴봐요.</p>
+          )}
+          {scaleCalcChecked && scaleAllOk && (
+            <p className="font-body text-emerald-700 text-center mt-1" style={{ fontSize: '1.3rem' }}>🎉 모두 정답이에요! 이제 세 지도를 비교해 봐요.</p>
+          )}
+        </div>
+      )}
+
+      {/* 단계 2: 비교 질문 */}
+      {scaleStep === 'compare' && (
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          <Card className="!p-4 bg-emerald-50 border-emerald-300 flex flex-col gap-3">
+            <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.4rem' }}>
+              방금 구한 값: 🚶 <b>300 m</b> · 🌲 <b>500 m</b> · 🚗 <b>1000 m (= 1 km)</b>
+            </p>
+
+            <div className="bg-white rounded-xl p-3 border-2 border-emerald-200">
+              <p className="font-body text-stone-800 mb-2" style={{ fontSize: '1.5rem' }}>
+                Q1. <b>지도 1 cm 가 실제로 가장 긴 거리</b>를 나타내는 지도는?
+              </p>
+              <p className="font-body text-stone-500 mb-2" style={{ fontSize: '1.1rem' }}>(1 cm 가 더 긴 거리를 가리킬수록 한 화면에 <b>더 넓은 지역</b>이 들어가요)</p>
+              <div className="flex gap-2 flex-wrap">
+                {scaleMaps.map(m => {
+                  const sel = widerAns === m.key;
+                  const ok = compareChecked && m.key === 'traffic';
+                  const bad = compareChecked && sel && m.key !== 'traffic';
+                  return (
+                    <button key={m.key} onClick={() => { setWiderAns(m.key); setCompareChecked(false); }}
+                      className={`font-display rounded-xl border-2 border-b-4 px-4 py-2 transition-all ${
+                        ok ? 'bg-emerald-100 border-emerald-500 text-emerald-800 animate-pop-in' :
+                        bad ? 'bg-rose-100 border-rose-500 text-rose-700 animate-shake' :
+                        sel ? 'bg-amber-100 border-amber-400 text-amber-800' : 'bg-white border-stone-300 text-stone-700'
+                      }`}
+                      style={{ fontSize: '1.3rem' }}>{m.emoji} {m.name}</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-3 border-2 border-emerald-200">
+              <p className="font-body text-stone-800 mb-2" style={{ fontSize: '1.5rem' }}>
+                Q2. <b>지도 1 cm 가 실제로 가장 짧은 거리</b>를 나타내는 지도는?
+              </p>
+              <p className="font-body text-stone-500 mb-2" style={{ fontSize: '1.1rem' }}>(1 cm 가 더 짧은 거리를 가리킬수록 한 화면에 <b>더 좁은 곳을 자세히</b> 보여줘요)</p>
+              <div className="flex gap-2 flex-wrap">
+                {scaleMaps.map(m => {
+                  const sel = detailAns === m.key;
+                  const ok = compareChecked && m.key === 'park';
+                  const bad = compareChecked && sel && m.key !== 'park';
+                  return (
+                    <button key={m.key} onClick={() => { setDetailAns(m.key); setCompareChecked(false); }}
+                      className={`font-display rounded-xl border-2 border-b-4 px-4 py-2 transition-all ${
+                        ok ? 'bg-emerald-100 border-emerald-500 text-emerald-800 animate-pop-in' :
+                        bad ? 'bg-rose-100 border-rose-500 text-rose-700 animate-shake' :
+                        sel ? 'bg-amber-100 border-amber-400 text-amber-800' : 'bg-white border-stone-300 text-stone-700'
+                      }`}
+                      style={{ fontSize: '1.3rem' }}>{m.emoji} {m.name}</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-3">
+              <Button onClick={() => setScaleStep('calc')} variant="soft">← 이전 단계</Button>
+              <Button onClick={() => setCompareChecked(true)} disabled={!widerAns || !detailAns}>정답 확인 ✨</Button>
+              {compareChecked && widerOk && detailOk && (
+                <Button onClick={() => setScaleStep('done')} variant="secondary">결론 보기 →</Button>
+              )}
+            </div>
+            {compareChecked && (!widerOk || !detailOk) && (
+              <p className="font-body text-rose-700 text-center" style={{ fontSize: '1.2rem' }}>다시 생각해 봐요. 1 cm 가 더 긴 거리를 가리키는 지도일수록 넓은 지역을 한눈에 볼 수 있어요!</p>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* 단계 3: 결론 — 팝업으로 표시 */}
+      {scaleStep === 'done' && (
+        <>
+          <div className="flex-1 flex items-center justify-center min-h-0">
+            <p className="font-body text-stone-600 text-center" style={{ fontSize: '1.3rem' }}>👉 오른쪽 위에 결론이 떠 있어요. 닫으면 다시 비교 단계로 갈 수 있어요.</p>
+          </div>
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.55)' }}>
+            <div className="bg-gradient-to-br from-amber-50 via-white to-emerald-50 rounded-3xl p-6 w-full max-w-3xl card-shadow border-4 border-amber-400 animate-pop-in flex flex-col" style={{ maxHeight: '90%' }}>
+              <p className="font-display text-amber-900 text-center mb-3" style={{ fontSize: '2rem' }}>🎯 결론!</p>
+              <div className="space-y-2 overflow-y-auto pr-1">
+                <div className="bg-white rounded-xl p-3 border-2 border-rose-300">
+                  <p className="font-body" style={{ fontSize: '1.3rem', lineHeight: '1.85rem' }}>
+                    <b className="text-rose-700">🚗 교통 지도 (축척 1 : 100000)</b> — 1 cm 가 실제 <b>100000 cm = 1000 m = 1 km</b><br/>
+                    → <b>가장 넓은 지역</b>을 한눈에 보여줘요!
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border-2 border-emerald-300">
+                  <p className="font-body" style={{ fontSize: '1.3rem', lineHeight: '1.85rem' }}>
+                    <b className="text-emerald-700">🌲 휴양림 안내 지도 (축척 1 : 50000)</b> — 1 cm 가 실제 <b>50000 cm = 500 m</b><br/>
+                    → 중간 정도의 면적 / 자세함.
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border-2 border-orange-300">
+                  <p className="font-body" style={{ fontSize: '1.3rem', lineHeight: '1.85rem' }}>
+                    <b className="text-orange-700">🚶 공원 산책로 안내지도 (축척 1 : 30000)</b> — 1 cm 가 실제 <b>30000 cm = 300 m</b><br/>
+                    → <b>가장 좁은 지역을 자세히</b> 보여줘요!
+                  </p>
+                </div>
+                <div className="bg-amber-100 rounded-xl p-3 border-2 border-amber-400 mt-2">
+                  <p className="font-display text-amber-900 text-center" style={{ fontSize: '1.3rem', lineHeight: '1.9rem' }}>
+                    💡 같은 1 cm 라도 <b>축척의 뒷수가 작을수록 좁은 곳을 자세히</b>,<br/>
+                    <b>축척의 뒷수가 클수록 넓은 곳을 한눈에</b> 보여줘요!
+                  </p>
+                </div>
+              </div>
+              <div className="text-center mt-3 flex-shrink-0">
+                <Button onClick={() => setScaleStep('compare')} variant="soft">← 비교로 돌아가기</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="text-right mt-3">
         <Button onClick={() => setStep(2)}>핵심 정리 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
       </div>
+      </>
+      )}
     </div>
-  );
+    );
+  };
 
   const renderSummary = () => (
     <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
@@ -1808,144 +2549,157 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
     const num100 = cleanFactor ? a * cleanFactor : null;
 
     return (
-      <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
-        {practiceStep === 0 && (
+      <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-3 min-h-0">
+        {practiceStep === 0 && (() => {
+          // 정답: 사과 110/200 (그대로), 감 160/400 = 80/200
+          const persimNumOK = parseInt(fruitInputs.persimNum, 10) === 80;
+          const winnerOK = fruitInputs.winner === '사과';
+          const cls = (ok) => fruitChecked ? (ok ? 'border-emerald-500 bg-emerald-50' : 'border-rose-500 bg-rose-50') : 'border-amber-300 focus:border-amber-500';
+          return (
           <>
-            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>같은 비율 만들기 🔧</h2>
-            <p className="font-body text-stone-600 text-center mb-4" style={{ fontSize: '1.4rem' }}>슬라이더를 움직이며 비, 분수, 소수가 어떻게 같이 변하는지 봐요!</p>
+            <h2 className="font-display text-amber-900 text-center" style={{ fontSize: '2rem' }}>🍎 과일 가게 비율 비교 문제</h2>
 
-            <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
-              {/* 슬라이더 */}
-              <Card className="flex flex-col justify-around">
-                <div className="bg-orange-50 rounded-2xl p-5 border-2 border-orange-200">
-                  <div className="flex justify-between mb-3 items-center">
-                    <span className="font-display text-orange-700" style={{ fontSize: '1.6rem' }}>비교하는 양 (도토리)</span>
-                    <span className="font-display text-orange-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{a}</span>
-                  </div>
-                  <input type="range" min="1" max="10" value={a} onChange={(e) => setA(+e.target.value)}
-                    className="w-full h-3" />
-                  <div className="flex flex-wrap gap-1.5 mt-3 min-h-[44px]">
-                    {[...Array(a)].map((_, i) => <Acorn key={i} size={36} />)}
-                  </div>
+            {/* 문제 박스 — 힌트 제거, 글자 1.5배 */}
+            <div className="bg-purple-50 rounded-2xl p-4 border-2 border-purple-300 mb-3">
+              <p className="font-body text-stone-800" style={{ fontSize: '1.9rem', lineHeight: '2.7rem' }}>
+                📝 어느 과일 가게에서 하루 동안 <b className="text-red-600">사과를 200개 중 110개</b>, <b className="text-orange-700">감을 400개 중 160개</b> 팔았습니다. 두 과일의 <b>처음에 있던 개수에 대한 판매한 개수의 비율</b>을 비교해 봅시다.
+              </p>
+            </div>
+
+            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+              {/* 사과 카드 — 변환 불필요 (이미 /200) */}
+              <Card className="!p-4 bg-red-50 border-red-200 flex flex-col justify-center gap-3">
+                <div className="flex justify-center">
+                  <span className="bg-red-500 text-white rounded-full px-6 py-1.5 font-display shadow border-b-4 border-red-700" style={{ fontSize: '1.8rem' }}>🍎 사과</span>
                 </div>
-                <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-200">
-                  <div className="flex justify-between mb-3 items-center">
-                    <span className="font-display text-emerald-700" style={{ fontSize: '1.6rem' }}>기준량 (호두)</span>
-                    <span className="font-display text-emerald-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{b}</span>
-                  </div>
-                  <input type="range" min="1" max="10" value={b} onChange={(e) => setB(+e.target.value)}
-                    className="w-full h-3" />
-                  <div className="flex flex-wrap gap-1.5 mt-3 min-h-[44px]">
-                    {[...Array(b)].map((_, i) => <Walnut key={i} size={36} />)}
-                  </div>
+                <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.5rem' }}>전체 <b>200</b>개 중 <b>110</b>개 판매</p>
+                <p className="font-body text-stone-600 text-center" style={{ fontSize: '1.3rem', lineHeight: '1.8rem' }}>분모가 이미 <b>200</b>이에요!<br/>그대로 사용해요.</p>
+                <div className="bg-white rounded-xl p-4 border-2 border-red-200 flex items-center justify-center">
+                  <span className="font-body text-stone-700" style={{ fontSize: '1.6rem' }}>비율 =</span>
+                  <span className="ml-2"><Fraction num="110" den="200" color="#DC2626" size="2rem" /></span>
                 </div>
               </Card>
 
-              {/* 결과 */}
-              <Card className="flex flex-col justify-around bg-gradient-to-br from-amber-50 to-emerald-50">
-                <p className="font-body text-center text-stone-700" style={{ fontSize: '1.5rem' }}>아래 모두 <b>같은 비율</b>이에요!</p>
-                <div className="bg-white rounded-2xl p-4 border-2 border-orange-200 text-center card-shadow">
-                  <p className="font-body text-stone-600 mb-1" style={{ fontSize: '1.3rem' }}>비</p>
-                  <p className="font-display text-orange-700" style={{ fontSize: '3.6rem', lineHeight: '1' }}>{a} : {b}</p>
+              {/* 감 카드 — 200으로 통분 (분자/분모를 2로 나눔) */}
+              <Card className="!p-4 bg-orange-50 border-orange-200 flex flex-col justify-center gap-3">
+                <div className="flex justify-center">
+                  <span className="bg-orange-500 text-white rounded-full px-6 py-1.5 font-display shadow border-b-4 border-orange-700" style={{ fontSize: '1.8rem' }}>🟠 감</span>
                 </div>
-                <div className="bg-white rounded-2xl p-4 border-2 border-emerald-200 text-center card-shadow">
-                  <p className="font-body text-stone-600 mb-1" style={{ fontSize: '1.3rem' }}>분수</p>
-                  <Fraction num={a} den={b} color="#047857" size="2.8rem" />
-                </div>
-                <div className="bg-white rounded-2xl p-4 border-2 border-amber-300 text-center card-shadow">
-                  <p className="font-body text-stone-600 mb-1" style={{ fontSize: '1.3rem' }}>소수</p>
-                  <p className="font-display text-amber-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{ratioDecimal}</p>
+                <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.5rem' }}>전체 <b>400</b>개 중 <b>160</b>개 판매</p>
+                <p className="font-body text-stone-600 text-center" style={{ fontSize: '1.3rem', lineHeight: '1.8rem' }}>분모를 사과처럼 <b>200</b>으로!<br/>분모를 2로 나누면 분자도 2로 나눠요.</p>
+                <div className="bg-white rounded-xl p-4 border-2 border-orange-200 flex items-center justify-center gap-2 flex-wrap">
+                  <Fraction num="160" den="400" color="#EA580C" size="1.7rem" />
+                  <span className="font-display text-stone-500" style={{ fontSize: '1.5rem' }}>=</span>
+                  <span className="inline-flex flex-col items-center">
+                    <input type="text" inputMode="numeric" value={fruitInputs.persimNum}
+                      onChange={(e) => { setFruitInputs({ ...fruitInputs, persimNum: e.target.value }); setFruitChecked(false); }}
+                      className={`text-center font-display border-2 border-b-4 rounded-lg outline-none ${cls(persimNumOK)}`}
+                      style={{ width: '5rem', fontSize: '1.8rem' }} placeholder="?" />
+                    <span style={{ borderBottom: '3px solid #EA580C', alignSelf: 'stretch', minWidth: '1.4em', margin: '5px 0' }}></span>
+                    <span className="font-display text-orange-600" style={{ fontSize: '1.8rem' }}>200</span>
+                  </span>
                 </div>
               </Card>
             </div>
 
-            <div className="text-right mt-3">
-              <Button onClick={() => setPracticeStep(1)}>분수↔소수 자세히 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
-            </div>
-          </>
-        )}
-
-        {practiceStep === 1 && (
-          <>
-            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>분수와 소수 바꾸기 🔁</h2>
-            <p className="font-body text-stone-600 text-center mb-4" style={{ fontSize: '1.4rem' }}>슬라이더로 비를 만들고, 분수↔소수가 어떻게 바뀌는지 봐요!</p>
-
-            {/* 위: 현재 비율 (한 줄 표시) */}
-            <div className="bg-gradient-to-br from-amber-50 to-emerald-50 rounded-2xl p-4 border-2 border-emerald-200 mb-4">
-              <p className="font-body text-stone-700 text-center mb-2" style={{ fontSize: '1.3rem' }}>현재 비율</p>
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                <span className="font-display text-orange-700" style={{ fontSize: '2.5rem' }}>{a} : {b}</span>
-                <span className="font-display text-stone-400" style={{ fontSize: '2rem' }}>=</span>
-                <Fraction num={a} den={b} color="#047857" size="2.4rem" />
-                <span className="font-display text-stone-400" style={{ fontSize: '2rem' }}>=</span>
-                <span className="font-display text-amber-700" style={{ fontSize: '2.5rem' }}>{ratioDecimal}</span>
-              </div>
-              <div className="flex items-center justify-center gap-3 mt-3">
-                <span className="font-body text-stone-600" style={{ fontSize: '1.1rem' }}>도토리</span>
-                <input type="range" min="1" max="10" value={a} onChange={(e) => setA(+e.target.value)} className="w-32 h-3" />
-                <span className="font-display text-orange-700" style={{ fontSize: '1.5rem' }}>{a}</span>
-                <span className="mx-3 text-stone-300">|</span>
-                <span className="font-body text-stone-600" style={{ fontSize: '1.1rem' }}>호두</span>
-                <input type="range" min="1" max="10" value={b} onChange={(e) => setB(+e.target.value)} className="w-32 h-3" />
-                <span className="font-display text-emerald-700" style={{ fontSize: '1.5rem' }}>{b}</span>
-              </div>
-            </div>
-
-            {/* 아래: 두 변환 방법 */}
-            <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
-              <Card className="!p-5 bg-emerald-50 border-emerald-300 flex flex-col justify-around">
-                <p className="font-display text-emerald-800 text-center" style={{ fontSize: '1.7rem' }}>분수 → 소수</p>
-                <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.25rem' }}>
-                  <b className="text-emerald-700">비교하는 양 ÷ 기준량</b>을 계산해요
-                </p>
-                <div className="bg-white rounded-xl p-4 border-2 border-emerald-200 text-center flex items-center justify-center gap-3 flex-wrap" style={{ fontSize: '1.5rem' }}>
-                  <Fraction num={a} den={b} color="#047857" size="2rem" />
-                  <span className="text-stone-500">=</span>
-                  <span className="font-bold">{a} ÷ {b}</span>
-                  <span className="text-stone-500">=</span>
-                  <span className="font-display text-emerald-700" style={{ fontSize: '2.2rem' }}>{ratioDecimal}</span>
-                </div>
-              </Card>
-
-              <Card className="!p-5 bg-orange-50 border-orange-300 flex flex-col justify-around">
-                <p className="font-display text-orange-800 text-center" style={{ fontSize: '1.7rem' }}>소수 → 분수</p>
-                {cleanFactor ? (
-                  <>
-                    <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.25rem' }}>
-                      분모와 분자에 <b className="text-orange-700">같은 수를 곱해</b> 분모를 100으로
-                    </p>
-                    <div className="bg-white rounded-xl p-4 border-2 border-orange-200 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: '1.4rem' }}>
-                      <Fraction num={a} den={b} color="#C2410C" size="1.9rem" />
-                      <span className="text-stone-500" style={{ fontSize: '1.1rem' }}>×{cleanFactor}</span>
-                      <span className="text-stone-500">=</span>
-                      <Fraction num={num100} den="100" color="#C2410C" size="1.9rem" />
-                      <span className="text-stone-500">=</span>
-                      <span className="font-display text-orange-700" style={{ fontSize: '2rem' }}>{ratioDecimal}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-body text-stone-700 text-center" style={{ fontSize: '1.25rem' }}>
-                      분모가 <b>{b}</b>는 100을 만들 수 없어서 <br/><b className="text-orange-700">나눗셈</b>으로만 바꿀 수 있어요
-                    </p>
-                    <div className="bg-white rounded-xl p-4 border-2 border-orange-200 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: '1.4rem' }}>
-                      <span className="font-display text-orange-700" style={{ fontSize: '2rem' }}>{ratioDecimal}</span>
-                      <span className="text-stone-500">=</span>
-                      <span className="font-bold">{a} ÷ {b}</span>
-                      <span className="text-stone-500">=</span>
-                      <Fraction num={a} den={b} color="#C2410C" size="1.9rem" />
-                    </div>
-                  </>
-                )}
-              </Card>
-            </div>
-
-            <div className="flex justify-between mt-3">
-              <Button onClick={() => setPracticeStep(0)} variant="soft">← 이전</Button>
+            <div className="flex justify-between items-center mt-3">
+              <button onClick={() => setFruitChecked(true)}
+                className={`font-display rounded-xl px-5 py-2 border-b-4 transition-all ${persimNumOK ? 'bg-emerald-500 text-white border-emerald-700' : 'bg-amber-500 text-white border-amber-700'} shadow`}
+                style={{ fontSize: '1.4rem' }}
+                disabled={!fruitInputs.persimNum}>📌 계산 확인 ✨</button>
+              {fruitChecked && persimNumOK && (
+                <Button onClick={() => { setShowFruitCompare(true); setFruitRevealed({ apple: false, persim: false }); }} variant="secondary">📊 비교하러 가기 →</Button>
+              )}
               <Button onClick={() => { setQuizSize(null); setSelectedQuestions([]); setQIndex(0); setQAnswers([]); setStep(4); }}>퀴즈 풀러 가기 <ArrowRight size={22} className="inline ml-1" /></Button>
             </div>
+            {fruitChecked && !persimNumOK && (
+              <p className="font-body text-rose-700 text-center mt-1" style={{ fontSize: '1.15rem' }}>다시 풀어 봐요! 분모 400을 2로 나누면 200, 분자도 똑같이 2로 나눠요.</p>
+            )}
+
+            {/* 비교 팝업 */}
+            {showFruitCompare && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.55)' }}>
+                <div className="bg-emerald-50 rounded-3xl p-7 max-w-3xl w-full card-shadow border-4 border-emerald-400 animate-pop-in">
+                  <h3 className="font-display text-emerald-800 text-center mb-3" style={{ fontSize: '2rem' }}>📊 두 비율 비교하기</h3>
+                  <p className="font-body text-stone-700 text-center mb-3" style={{ fontSize: '1.3rem' }}>아래 과일을 눌러서 앞에서 계산한 비율을 확인해 봐요!</p>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {/* 사과 reveal */}
+                    <button onClick={() => setFruitRevealed(r => ({ ...r, apple: true }))}
+                      className={`rounded-2xl border-2 border-b-4 p-4 transition-all ${fruitRevealed.apple ? 'bg-white border-red-400' : 'bg-red-500 text-white border-red-700 hover:bg-red-600'}`}>
+                      <p className="font-display text-center" style={{ fontSize: '1.7rem' }}>🍎 사과</p>
+                      {fruitRevealed.apple ? (
+                        <div className="flex items-center justify-center gap-2 mt-2">
+                          <span className="font-body text-stone-700" style={{ fontSize: '1.3rem' }}>비율 =</span>
+                          <Fraction num="110" den="200" color="#DC2626" size="1.8rem" />
+                        </div>
+                      ) : (
+                        <p className="font-body text-center mt-2" style={{ fontSize: '1.1rem' }}>👆 눌러서 비율 보기</p>
+                      )}
+                    </button>
+                    {/* 감 reveal */}
+                    <button onClick={() => setFruitRevealed(r => ({ ...r, persim: true }))}
+                      className={`rounded-2xl border-2 border-b-4 p-4 transition-all ${fruitRevealed.persim ? 'bg-white border-orange-400' : 'bg-orange-500 text-white border-orange-700 hover:bg-orange-600'}`}>
+                      <p className="font-display text-center" style={{ fontSize: '1.7rem' }}>🟠 감</p>
+                      {fruitRevealed.persim ? (
+                        <div className="flex items-center justify-center gap-2 mt-2">
+                          <span className="font-body text-stone-700" style={{ fontSize: '1.3rem' }}>비율 =</span>
+                          <Fraction num="80" den="200" color="#EA580C" size="1.8rem" />
+                        </div>
+                      ) : (
+                        <p className="font-body text-center mt-2" style={{ fontSize: '1.1rem' }}>👆 눌러서 비율 보기</p>
+                      )}
+                    </button>
+                  </div>
+
+                  {fruitRevealed.apple && fruitRevealed.persim && (
+                    <div className="bg-white rounded-2xl p-4 border-2 border-emerald-300 animate-fade-up">
+                      <p className="font-body text-stone-700 mb-2 text-center" style={{ fontSize: '1.3rem' }}>
+                        ✨ 분모가 모두 <b>200</b>! 이제 분자를 비교하면 돼요.<br/>
+                        <span className="font-display text-stone-800" style={{ fontSize: '1.5rem' }}>110 &gt; 80</span>
+                      </p>
+                      <p className="font-body text-stone-700 mb-2 text-center" style={{ fontSize: '1.3rem' }}>
+                        그러면 <b>판매 비율이 더 높은 과일</b>은?
+                      </p>
+                      <div className="flex gap-3 justify-center">
+                        {['사과', '감'].map(opt => {
+                          const sel = fruitInputs.winner === opt;
+                          const isAns = sel && fruitChecked && opt === '사과';
+                          const isWrong = sel && fruitChecked && opt !== '사과';
+                          return (
+                            <button key={opt} onClick={() => { setFruitInputs({ ...fruitInputs, winner: opt }); }}
+                              className={`font-display rounded-xl border-2 border-b-4 px-6 py-2 transition-all ${
+                                isAns ? 'bg-emerald-100 border-emerald-500 text-emerald-800 animate-pop-in' :
+                                isWrong ? 'bg-rose-100 border-rose-500 text-rose-700 animate-shake' :
+                                sel ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-stone-300 text-stone-700'
+                              }`}
+                              style={{ fontSize: '1.5rem' }}>{opt === '사과' ? '🍎 사과' : '🟠 감'}</button>
+                          );
+                        })}
+                      </div>
+                      {fruitInputs.winner && winnerOK && (
+                        <p className="font-body text-emerald-800 mt-3 text-center animate-pop-in" style={{ fontSize: '1.3rem' }}>
+                          🎉 정답! 판매 비율이 더 높은 과일은 <b>사과</b>예요. (110/200 &gt; 80/200)
+                        </p>
+                      )}
+                      {fruitInputs.winner && !winnerOK && (
+                        <p className="font-body text-rose-700 mt-3 text-center" style={{ fontSize: '1.2rem' }}>
+                          다시 생각해 봐요. 110과 80 중 어느 쪽이 더 크죠?
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="text-center mt-4">
+                    <Button onClick={() => setShowFruitCompare(false)} variant="soft">닫기</Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
-        )}
+          );
+        })()}
+
       </div>
     );
   };
@@ -2037,8 +2791,8 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
     };
 
     return (
-      <div className="animate-fade-up h-full flex items-center justify-center px-8">
-        <Card className="w-full max-w-5xl p-7">
+      <div className="animate-fade-up h-full flex items-center justify-center px-6 overflow-y-auto py-4">
+        <Card className="w-full max-w-6xl p-7">
           <div className="flex justify-between items-center mb-5">
             <span className="font-display text-amber-700 text-3xl">문제 {qIndex + 1} / {quizSize}</span>
             <div className="flex gap-2 flex-wrap max-w-md justify-end">
@@ -2048,7 +2802,7 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
             </div>
           </div>
 
-          <p className="font-body text-stone-800 text-4xl mb-6 leading-snug">{q.q}</p>
+          <p className="font-body text-stone-800 mb-4 leading-snug" style={{ fontSize: '2.8rem', lineHeight: '3.6rem', wordBreak: 'keep-all' }}>{q.q}</p>
 
           <div className="grid grid-cols-4 gap-4">
             {q.options.map((opt, i) => {
@@ -2064,11 +2818,16 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
                 <button key={i}
                   onClick={() => !feedback && handleAnswer(i)}
                   disabled={!!feedback}
-                  className={`font-display text-4xl px-3 py-6 rounded-2xl border-2 border-b-4 transition-all flex items-center justify-center min-h-[110px] ${style}`}>
+                  className={`font-display px-3 py-6 rounded-2xl border-2 border-b-4 transition-all flex items-center justify-center min-h-[110px] ${style}`}
+                  style={{ fontSize: '2.8rem' }}>
                   {renderOption(opt)}
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-5">
+            <ScratchPad key={'s2-q-' + qIndex} />
           </div>
         </Card>
       </div>
@@ -2161,7 +2920,7 @@ const Stage2 = ({ onHome, onComplete, onCorrect }) => {
       {showConfetti && <Confetti />}
       <TopBar
         onHome={onHome}
-        onBack={!showOverview ? goOverview : null}
+        onBack={!showOverview ? goBack : null}
         title="📊 비율의 언덕"
         progress={showOverview ? '목차' : `${Math.min(step + 1, 6)}/6`}
       />
@@ -2242,9 +3001,9 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
       { key: 'testB2', ans: 80, hint: <>비율(소수)에 100을 곱하면 백분율이 돼요. 소수점이 두 자리 오른쪽으로 옮겨가요.</> },
     ],
     rain: [
-      { key: 'rainA1', ans: 45, hint: <>0.45는 소수 두 자리 수예요. 분모가 100인 분수로 한 번에 바꿀 수 있어요.</> },
-      { key: 'rainA2', ans: 45, hint: <>분모가 100인 분수의 분자가 곧 백분율이에요!</> },
-      { key: 'rainB1', ans: 45, hint: <>0.45에 100을 곱하면 어떻게 될까요? 소수점이 두 자리 오른쪽으로 옮겨가요.</> },
+      { key: 'rainA1', ans: 20, hint: <>0.2 = 2/10 → 분자·분모에 10을 곱해서 분모 100인 분수로!</> },
+      { key: 'rainA2', ans: 20, hint: <>분모가 100인 분수의 분자가 곧 백분율이에요!</> },
+      { key: 'rainB1', ans: 20, hint: <>0.2에 100을 곱하면 어떻게 될까요? 소수점이 두 자리 오른쪽으로 옮겨가요.</> },
     ],
     bat: [
       { key: 'batA1', ans: 60, hint: <>{fI('15','25')}의 분모를 100으로 만들려면 25에 어떤 수를 곱해야 할까요? 분자에도 같은 수를 곱해야 해요.</> },
@@ -2268,65 +3027,66 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
     triggerCelebration();
   };
 
+  // 실생활 백분율 문제 10문제
   const quizPool = [
     {
-      q: '소수 0.45를 백분율로 나타내면?',
-      hint: <>0.45를 분모가 100인 분수로 바꿔 봐요. 또는 0.45에 100을 곱해도 돼요.</>,
-      options: ['4.5%', '45%', '450%', '0.45%'],
+      q: '🛒 5,000원짜리 옷이 20% 할인 중이에요. 할인 금액은 얼마일까요?',
+      hint: <>5,000 × {fI('20','100')}을 계산해 봐요. {fI('20','100')} = {fI('1','5')} 이에요.</>,
+      options: ['500원', '1,000원', '1,500원', '2,000원'],
       answer: 1,
     },
     {
-      q: '🛒 2,000원짜리 음료가 15% 할인 중! 할인 금액은 얼마일까요?',
-      hint: <>2,000 × {fI('15','100')}을 계산해 봐요. 또는 15%를 소수 0.15로 바꿔서 곱해도 돼요.</>,
-      options: ['150원', '200원', '300원', '450원'],
+      q: '📝 25문제 중 20문제를 맞혔어요. 정답률은 몇 %일까요?',
+      hint: <>{fI('20','25')}의 분모를 100으로 만들어 봐요. 25에 4를 곱하면 100이 돼요.</>,
+      options: ['20%', '50%', '75%', '80%'],
+      answer: 3,
+    },
+    {
+      q: '🐶 50명 학생 중 18명이 강아지를 좋아해요. 강아지를 좋아하는 학생의 비율(%)은?',
+      hint: <>{fI('18','50')}의 분모를 100으로 만들어요. 50 × 2 = 100, 18 × 2 = 36.</>,
+      options: ['18%', '32%', '36%', '50%'],
       answer: 2,
     },
     {
-      q: '한 반 학생 50명 중 22명이 안경을 써요. 안경 낀 학생의 비율은 몇 %일까요?',
-      hint: <>분수 {fI('22','50')}의 분모를 100으로 만들어 봐요. 또는 22 ÷ 50을 계산하고 100을 곱해도 돼요.</>,
-      options: ['22%', '44%', '50%', '88%'],
+      q: '🏃 50m 달리기 기록 측정에서 우리 반 20명 중 12명이 10초 안에 들어왔어요. 10초 안에 들어온 학생의 비율은 몇 %일까요?',
+      hint: <>{fI('12','20')}의 분모를 100으로 만들어 봐요. 20에 5를 곱하면 100. 분자에도 5를 곱하기.</>,
+      options: ['12%', '24%', '60%', '120%'],
+      answer: 2,
+    },
+    {
+      q: '🚲 한 마을 인구 200명 중 자전거를 가진 사람이 50명이에요. 자전거 보유율은 몇 %일까요?',
+      hint: <>{fI('50','200')}의 분모를 100으로 만들어 봐요. 200을 100으로 만들려면 2로 나눠요.</>,
+      options: ['10%', '25%', '50%', '75%'],
       answer: 1,
     },
     {
-      q: '소수 0.08을 백분율로 나타내면?',
-      hint: <>0.08은 분모가 100인 분수 {fI('8','100')}과 같아요. 분자가 곧 백분율!</>,
-      options: ['0.8%', '8%', '80%', '800%'],
+      q: '💰 5,000원짜리 책이 4,000원으로 할인됐어요. 할인율은 몇 %일까요?',
+      hint: <>할인 금액 1,000원이 원래 가격 5,000원의 몇 %? {fI('1000','5000')} = {fI('20','100')}.</>,
+      options: ['10%', '20%', '25%', '80%'],
       answer: 1,
     },
     {
-      q: <>분수 {fI('35','100')}을 백분율로 나타내면?</>,
-      hint: <>분모가 100인 분수는 분자가 곧 % 값이에요.</>,
+      q: '📚 학교 도서관 책 1,000권 중 만화책이 150권이에요. 만화책의 비율은 몇 %일까요?',
+      hint: <>{fI('150','1000')} = {fI('15','100')} 으로 약분돼요.</>,
+      options: ['1.5%', '15%', '50%', '150%'],
+      answer: 1,
+    },
+    {
+      q: '🥤 음료 1L를 친구 4명과 똑같이 나누어 마실 때, 한 명이 마시는 양은 전체의 몇 %인가요?',
+      hint: <>한 명이 마시는 양: {fI('1','4')} = {fI('25','100')} = ?</>,
+      options: ['10%', '20%', '25%', '40%'],
+      answer: 2,
+    },
+    {
+      q: <>📊 분수 {fI('35','100')} 을 백분율로 나타내면?</>,
+      hint: <>분모가 100인 분수는 분자가 곧 백분율이에요.</>,
       options: ['0.35%', '3.5%', '35%', '350%'],
       answer: 2,
     },
     {
-      q: '🛒 8,000원짜리 책이 25% 할인! 할인 금액은 얼마일까요?',
-      hint: <>8,000 × {fI('25','100')}을 계산해 봐요. {fI('25','100')}은 {fI('1','4')}과 같아요.</>,
-      options: ['1,000원', '1,500원', '2,000원', '2,500원'],
-      answer: 2,
-    },
-    {
-      q: '비율 0.6을 백분율로 나타내면?',
-      hint: <>0.6 = {fI('6','10')} = {fI('60','100')}으로 만들어 봐요. 또는 0.6 × 100.</>,
-      options: ['0.6%', '6%', '60%', '600%'],
-      answer: 2,
-    },
-    {
-      q: '20명 중 5명이 강아지를 좋아해요. 강아지를 좋아하는 비율은 몇 %일까요?',
-      hint: <>{fI('5','20')}의 분모를 100으로 만들어 봐요. 20에 어떤 수를 곱해야 100이 될까요?</>,
-      options: ['5%', '20%', '25%', '50%'],
-      answer: 2,
-    },
-    {
-      q: '소수 0.05를 백분율로 나타내면?',
-      hint: <>0.05 = {fI('5','100')}. 분자가 곧 백분율이에요.</>,
-      options: ['0.05%', '0.5%', '5%', '50%'],
-      answer: 2,
-    },
-    {
-      q: '한 반 30명 중 9명이 도서관을 좋아해요. 도서관을 좋아하는 학생의 비율은?',
-      hint: <>9 ÷ 30을 계산하거나, {fI('9','30')}의 분모를 100으로 만들어 봐요.</>,
-      options: ['9%', '20%', '30%', '40%'],
+      q: '🚍 우리 반 30명 중 12명이 버스로 등교해요. 버스 등교 비율은 몇 %일까요?',
+      hint: <>{fI('12','30')} = {fI('40','100')}. 30 × ? = 100이 안 떨어지면 12 ÷ 30 × 100을 계산해도 돼요.</>,
+      options: ['12%', '30%', '40%', '60%'],
       answer: 2,
     },
   ];
@@ -2337,6 +3097,8 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
   const [conceptReturn, setConceptReturn] = useState(false);
   const [showLevelGuide, setShowLevelGuide] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showMethodsCompare, setShowMethodsCompare] = useState(false);
+  const [showRatioReviewPopup, setShowRatioReviewPopup] = useState(false);
   const [showOverview, setShowOverview] = useState(true);
   const [visitedCards, setVisitedCards] = useState(new Set());
 
@@ -2355,6 +3117,25 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
   };
 
   const goOverview = () => setShowOverview(true);
+
+  const goBack = () => {
+    // 단계 매핑: 0 intro, 1 lesson, 2 methods, 3 disc, 4 test, 5 rain, 6 bat, 7 quiz, 8 done
+    if (step === 0) setShowOverview(true);
+    else if (step === 1) {
+      if (lessonStep > 0) setLessonStep(lessonStep - 1);
+      else setStep(0);
+    } else if (step === 2) {
+      if (methodsStep > 0) setMethodsStep(methodsStep - 1);
+      else { setStep(1); setLessonStep(2); }
+    } else if (step === 7) {
+      if (quizSize) { setQuizSize(null); setSelectedQuestions([]); setQIndex(0); setQAnswers([]); setFeedback(null); }
+      else setStep(6);
+    } else if (step >= 3 && step <= 8) {
+      setStep(step - 1);
+    } else {
+      setShowOverview(true);
+    }
+  };
 
   const startQuiz = (size) => {
     const shuffled = [...quizPool].sort(() => Math.random() - 0.5).slice(0, size);
@@ -2403,7 +3184,7 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
       <div className="animate-fade-up h-full flex flex-col px-10 pt-3 pb-5">
         {lessonStep === 0 && (
           <>
-            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>이미 배운 비율 다시 보기</h2>
+            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.5rem' }}>비율 다시 보기</h2>
             <p className="font-body text-stone-600 text-center mb-4" style={{ fontSize: '1.45rem' }}>
               비율은 <b className="text-orange-700">분수</b>나 <b className="text-amber-700">소수</b>로 나타냈죠?
             </p>
@@ -2431,40 +3212,94 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
               ))}
             </div>
 
-            <div className="bg-amber-100 rounded-2xl p-4 border-2 border-amber-300 mt-4">
-              <p className="font-body text-amber-900 text-center" style={{ fontSize: '1.5rem' }}>
-                🤔 이 비율들의 <b>기준량을 똑같이 100</b>으로 바꾸면 어떻게 될까요?
-              </p>
+            <div className="text-right mt-3">
+              <Button onClick={() => setShowRatioReviewPopup(true)}>다음 <ArrowRight size={22} className="inline ml-1" /></Button>
             </div>
 
-            <div className="text-right mt-3">
-              <Button onClick={() => setLessonStep(1)}>100으로 바꿔보기 <ArrowRight size={22} className="inline ml-1" /></Button>
-            </div>
+            {/* 안내문 팝업 — 다음 버튼 누르면 표시 */}
+            {showRatioReviewPopup && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-up" style={{ background: 'rgba(0,0,0,0.55)' }}>
+                <div className="bg-amber-50 rounded-3xl p-8 max-w-2xl w-full card-shadow border-4 border-amber-400 text-center animate-pop-in">
+                  <div className="text-6xl mb-3">🤔</div>
+                  <p className="font-display text-amber-900 mb-4" style={{ fontSize: '2rem', lineHeight: '2.9rem' }}>
+                    이 비율들의 <b>기준량을 똑같이 100</b>으로 바꾸면 어떻게 될까요?
+                  </p>
+                  <Button onClick={() => { setShowRatioReviewPopup(false); setLessonStep(1); }}>알아보러 가기 <ArrowRight size={22} className="inline ml-1" /></Button>
+                </div>
+              </div>
+            )}
           </>
         )}
 
         {lessonStep === 1 && (
+          <>
+            <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.4rem' }}>📘 백분율 알아보기</h2>
+            <p className="font-body text-stone-600 text-center mb-2" style={{ fontSize: '1.3rem' }}>100칸 중 색칠된 칸이 바로 <b className="text-orange-700">백분율</b>이에요!</p>
+
+            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+              {/* 좌: 100칸 모형 — 1칸 = 1% */}
+              <Card className="!p-4 bg-amber-50 border-amber-300 flex flex-col items-center justify-center">
+                <p className="font-display text-amber-800 text-center mb-2" style={{ fontSize: '1.4rem' }}>🔲 1 칸 = <b className="text-orange-700">1 %</b></p>
+                <div className="grid grid-cols-10 gap-1 w-full aspect-square max-w-[330px]">
+                  {[...Array(100)].map((_, i) => (
+                    <div key={i}
+                      className={`aspect-square rounded transition-colors ${i === 0 ? 'bg-orange-500 ring-2 ring-orange-700' : 'bg-amber-100 border border-amber-200'}`} />
+                  ))}
+                </div>
+                <p className="font-body text-stone-700 text-center mt-2" style={{ fontSize: '1.2rem', lineHeight: '1.7rem' }}>
+                  10 × 10 = <b>100 칸</b> 중 <b className="text-orange-700">1 칸</b>이 색칠 →<br/>
+                  비율 <Fraction num="1" den="100" color="#C2410C" size="1.3rem" /> = <b className="text-orange-700">1 %</b>
+                </p>
+              </Card>
+
+              {/* 우: 약속 박스 (정의) */}
+              <Card className="!p-5 bg-purple-50 border-purple-300 flex flex-col justify-center gap-3">
+                <p className="font-body text-stone-800" style={{ fontSize: '1.6rem', lineHeight: '2.4rem' }}>
+                  기준량을 <b className="bg-orange-200 text-orange-900 px-2 rounded">100</b> 으로 할 때의 비율을{' '}
+                  <b className="bg-orange-200 text-orange-900 px-2 rounded">백분율</b> 이라고 해요.
+                </p>
+                <p className="font-body text-stone-800" style={{ fontSize: '1.6rem', lineHeight: '2.4rem' }}>
+                  백분율은 기호 <b className="bg-orange-200 text-orange-900 px-2 rounded">%</b> 를 사용해서 나타내요.
+                </p>
+                <div className="bg-white rounded-2xl p-4 border-2 border-purple-200">
+                  <p className="font-body text-stone-800 flex items-center gap-2 flex-wrap" style={{ fontSize: '1.45rem' }}>
+                    예) 비율 <Fraction num="1" den="100" color="#7C3AED" size="1.8rem" /> 을 백분율로 나타내면 <b className="text-orange-700" style={{ fontSize: '1.9rem' }}>1 %</b>
+                  </p>
+                  <p className="font-body text-stone-800 mt-1" style={{ fontSize: '1.45rem' }}>
+                    "<b className="text-orange-700">1 퍼센트</b>" 라고 읽어요.
+                  </p>
+                </div>
+              </Card>
+            </div>
+
+            <div className="text-right mt-3">
+              <Button onClick={() => setLessonStep(2)}>비율을 백분율로 바꿔보기 <ArrowRight size={22} className="inline ml-1" /></Button>
+            </div>
+          </>
+        )}
+
+        {lessonStep === 2 && (
           <>
             <h2 className="font-display text-amber-900 text-center mb-1" style={{ fontSize: '2.3rem' }}>비율을 백분율(%)로 바꿔요</h2>
             <p className="font-body text-stone-600 text-center mb-3" style={{ fontSize: '1.3rem' }}>슬라이더를 움직여 봐요. 색칠된 칸이 곧 <b className="text-orange-700">백분율</b>이에요!</p>
 
             {/* 위쪽: 분수 | 소수 | 백분율 (3개 가로 배치) */}
             <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="bg-emerald-50 rounded-2xl p-4 border-2 border-emerald-300 text-center card-shadow">
-                <p className="font-body text-emerald-700 mb-2" style={{ fontSize: '1.4rem' }}>분수 (분모 100)</p>
-                <Fraction num={percent} den="100" color="#047857" size="2.6rem" />
+              <div className="bg-emerald-50 rounded-2xl p-3 border-2 border-emerald-300 text-center card-shadow">
+                <p className="font-body text-emerald-700 mb-1" style={{ fontSize: '1.3rem' }}>분수 (분모 100)</p>
+                <Fraction num={percent} den="100" color="#047857" size="2.2rem" />
               </div>
-              <div className="bg-amber-50 rounded-2xl p-4 border-2 border-amber-300 text-center card-shadow">
-                <p className="font-body text-amber-700 mb-2" style={{ fontSize: '1.4rem' }}>소수</p>
-                <p className="font-display text-amber-700" style={{ fontSize: '3rem', lineHeight: '1' }}>{(percent / 100).toFixed(2)}</p>
+              <div className="bg-amber-50 rounded-2xl p-3 border-2 border-amber-300 text-center card-shadow">
+                <p className="font-body text-amber-700 mb-1" style={{ fontSize: '1.3rem' }}>소수</p>
+                <p className="font-display text-amber-700" style={{ fontSize: '2.4rem', lineHeight: '1' }}>{(percent / 100).toFixed(2)}</p>
               </div>
-              <div className="bg-orange-100 rounded-2xl p-4 border-2 border-orange-400 text-center card-shadow">
-                <p className="font-body text-orange-700 mb-2" style={{ fontSize: '1.4rem' }}>백분율</p>
-                <p className="font-display text-orange-700" style={{ fontSize: '3rem', lineHeight: '1' }}>{percent}%</p>
+              <div className="bg-orange-100 rounded-2xl p-3 border-2 border-orange-400 text-center card-shadow">
+                <p className="font-body text-orange-700 mb-1" style={{ fontSize: '1.3rem' }}>백분율</p>
+                <p className="font-display text-orange-700" style={{ fontSize: '2.4rem', lineHeight: '1' }}>{percent}%</p>
               </div>
             </div>
 
-            {/* 아래쪽: 100칸 그림 + 슬라이더 */}
+            {/* 아래쪽: 100칸 그림 + 슬라이더 (슬라이더를 아래쪽 가운데로) */}
             <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
               {/* 100 grid */}
               <div className="bg-amber-50 p-4 rounded-2xl border-2 border-amber-200 flex items-center justify-center">
@@ -2476,30 +3311,28 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
                 </div>
               </div>
 
-              {/* Slider + 안내 */}
-              <div className="flex flex-col gap-4 justify-center">
-                <div className="bg-white rounded-2xl p-5 border-2 border-orange-200 card-shadow">
+              {/* Slider + 안내 (가운데 정렬, 아래쪽 여백 활용) */}
+              <div className="flex flex-col gap-3 justify-center">
+                <div className="bg-orange-100 rounded-2xl p-4 border-2 border-orange-400 text-center">
+                  <p className="font-display text-orange-900" style={{ fontSize: '1.6rem', lineHeight: '2.3rem' }}>
+                    💡 색칠된 칸 수가 <b>그대로 백분율</b>이에요!
+                  </p>
+                  <p className="font-body text-stone-700 mt-2" style={{ fontSize: '1.65rem', lineHeight: '2.3rem' }}>
+                    100칸 중 <b className="text-orange-700">{percent}칸</b> = <b className="text-orange-700">{percent}%</b>
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 border-2 border-orange-200 card-shadow">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="font-display text-orange-700" style={{ fontSize: '1.5rem' }}>슬라이더로 조절</span>
-                    <span className="font-display text-orange-700" style={{ fontSize: '3.2rem', lineHeight: '1' }}>{percent}%</span>
+                    <span className="font-display text-orange-700" style={{ fontSize: '1.4rem' }}>슬라이더로 조절</span>
+                    <span className="font-display text-orange-700" style={{ fontSize: '2.6rem', lineHeight: '1' }}>{percent}%</span>
                   </div>
                   <input type="range" min="0" max="100" value={percent} onChange={(e) => setPercent(+e.target.value)}
                     className="w-full h-3" />
                 </div>
-
-                <div className="bg-amber-100 rounded-2xl p-4 border-2 border-amber-300">
-                  <p className="font-display text-amber-900 text-center" style={{ fontSize: '1.4rem' }}>
-                    💡 기준량을 <b>100</b>으로 만든 비율
-                  </p>
-                  <p className="font-display text-amber-900 text-center mt-1" style={{ fontSize: '1.4rem' }}>
-                    = <b className="text-orange-700">백분율 (퍼센트, %)</b>
-                  </p>
-                </div>
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-3">
-              <Button onClick={() => setLessonStep(0)} variant="soft">← 이전</Button>
+            <div className="text-right mt-3">
               <Button onClick={() => setStep(2)}>두 가지 방법 알아보기 <ArrowRight size={22} className="inline ml-1" /></Button>
             </div>
           </>
@@ -2509,66 +3342,72 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
   };
 
   const renderMethods = () => (
-    <div className="animate-fade-up h-full flex flex-col px-10 py-4">
-      <h2 className="font-display text-3xl text-amber-900 text-center mb-1">✨ 핵심 정리 — 백분율로 바꾸는 두 가지 방법</h2>
-      <p className="font-body text-stone-600 text-center text-xl mb-3">
+    <div className="animate-fade-up h-full flex flex-col px-10 py-3 min-h-0">
+      <h2 className="font-display text-amber-900 text-center" style={{ fontSize: '2.4rem' }}>✨ 핵심 정리 — 백분율로 바꾸는 두 가지 방법</h2>
+      <p className="font-body text-stone-600 text-center mb-2" style={{ fontSize: '1.6rem' }}>
         비율을 백분율(%)로 바꾸는 방법 ({methodsStep + 1}/2)
       </p>
 
       {methodsStep === 0 && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="bg-emerald-50 rounded-2xl p-8 border-2 border-emerald-300 card-shadow w-full max-w-4xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-emerald-200 rounded-full w-16 h-16 flex items-center justify-center">
-                <span className="font-display text-emerald-900 text-3xl">①</span>
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <div className="bg-emerald-50 rounded-2xl p-6 border-2 border-emerald-300 card-shadow w-full max-w-5xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-emerald-200 rounded-full w-20 h-20 flex items-center justify-center">
+                <span className="font-display text-emerald-900" style={{ fontSize: '3rem' }}>①</span>
               </div>
-              <p className="font-display text-emerald-800 text-3xl">분모가 100인 분수로!</p>
+              <p className="font-display text-emerald-800" style={{ fontSize: '2.4rem' }}>분모가 100인 분수로 먼저!</p>
             </div>
-            <p className="font-body text-stone-700 text-xl mb-5">
-              비율을 <b>분모가 100인 분수</b>로 바꾸면, <b className="text-orange-700">분자가 그대로 백분율</b>이 돼요.
+            <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.6rem', lineHeight: '2.3rem' }}>
+              먼저 <b className="text-emerald-700">분모를 100</b>으로 만들고, 그 다음 <b className="text-orange-700">분자가 곧 백분율</b>이에요.
             </p>
-            <div className="bg-white rounded-2xl p-5 border-2 border-emerald-200 mb-3">
-              <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-2 text-stone-700 text-2xl">
-                <span>0.6 =</span>
-                <Fraction num="6" den="10" color="#047857" size="2rem" />
+            <div className="bg-white rounded-2xl p-4 border-2 border-emerald-200 mb-2">
+              <p className="font-body text-stone-600 text-center mb-2" style={{ fontSize: '1.1rem' }}>🐠 예: 어항 25마리 중 구피 14마리. 구피의 비율(%)?</p>
+              <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-2 text-stone-700" style={{ fontSize: '2rem' }}>
+                <Fraction num="14" den="25" color="#047857" size="2rem" />
                 <span>=</span>
-                <Fraction num="60" den="100" color="#047857" size="2rem" />
+                <Fraction num="56" den="100" color="#047857" size="2rem" />
                 <span>→</span>
-                <span className="font-bold text-orange-700 text-4xl">60%</span>
+                <span className="font-bold text-orange-700" style={{ fontSize: '3rem' }}>56%</span>
               </div>
+              <p className="font-body text-stone-500 text-center mt-1" style={{ fontSize: '0.95rem' }}>(분모/분자에 4를 곱해 25 → 100, 14 → 56)</p>
             </div>
-            <p className="font-body text-emerald-700 text-lg text-center">💡 분자가 곧 백분율!</p>
+            <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.4rem' }}>💡 분모를 100으로 만들면, 분자가 곧 백분율 !</p>
           </div>
         </div>
       )}
 
       {methodsStep === 1 && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="bg-orange-50 rounded-2xl p-8 border-2 border-orange-300 card-shadow w-full max-w-4xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-orange-200 rounded-full w-16 h-16 flex items-center justify-center">
-                <span className="font-display text-orange-900 text-3xl">②</span>
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <div className="bg-orange-50 rounded-2xl p-6 border-2 border-orange-300 card-shadow w-full max-w-5xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-orange-200 rounded-full w-20 h-20 flex items-center justify-center">
+                <span className="font-display text-orange-900" style={{ fontSize: '3rem' }}>②</span>
               </div>
-              <p className="font-display text-orange-800 text-3xl">비율에 100을 곱해요!</p>
+              <p className="font-display text-orange-800" style={{ fontSize: '2.4rem' }}>비율 × 100 으로 계산!</p>
             </div>
-            <p className="font-body text-stone-700 text-xl mb-5">
-              비율(소수)을 그대로 <b>100배</b> 하면 빠르게 백분율이 돼요.
+            <p className="font-body text-stone-700 mb-3" style={{ fontSize: '1.6rem', lineHeight: '2.3rem' }}>
+              비율(분수 또는 소수)에 <b className="text-orange-700">100을 곱하면</b> 바로 백분율이 돼요.
             </p>
             <div className="bg-white rounded-2xl p-5 border-2 border-orange-200 mb-3">
-              <div className="flex items-center justify-center text-stone-700 text-3xl">
-                <span>0.6 × 100 =</span>
-                <span className="font-bold text-orange-700 text-5xl ml-3">60%</span>
+              <div className="flex items-center justify-center font-bold text-stone-700 flex-wrap gap-x-3 gap-y-2" style={{ fontSize: '2.4rem' }}>
+                <Fraction num="14" den="25" color="#C2410C" size="2.4rem" />
+                <span>×</span>
+                <span>100</span>
+                <span>=</span>
+                <span>56</span>
+                <span>→</span>
+                <span className="font-bold text-orange-700" style={{ fontSize: '3.6rem' }}>56%</span>
               </div>
             </div>
-            <p className="font-body text-orange-700 text-lg text-center">💡 빠르고 간단한 방법!</p>
+            <p className="font-body text-orange-700 text-center mb-3" style={{ fontSize: '1.8rem' }}>💡 빠르고 간단한 방법!</p>
+            <div className="text-center">
+              <Button onClick={() => setShowMethodsCompare(true)} variant="soft">📊 두 방법 비교해 보기</Button>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="flex justify-between items-center mt-3">
-        {methodsStep > 0 ? (
-          <Button onClick={() => setMethodsStep(methodsStep - 1)} variant="soft">← 이전</Button>
-        ) : <div></div>}
+      <div className="text-right mt-3">
         {methodsStep < 1 ? (
           <Button onClick={() => setMethodsStep(methodsStep + 1)}>다음 방법 보기 <ArrowRight size={22} className="inline ml-1" /></Button>
         ) : (
@@ -2589,42 +3428,41 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
   const renderRealLife = ({ pageKey, idx, emoji, problemColor, problem, methodA, methodB, prevStep, nextStep, nextLabel }) => {
     const done = !!verified[pageKey];
     return (
-      <div className="animate-fade-up h-full flex flex-col px-6 py-3">
-        {/* 상단: 다람쥐 + 문제 */}
-        <div className="flex items-center justify-center gap-4 mb-3">
+      <div className="animate-fade-up h-full flex flex-col justify-center px-6 py-3 gap-4 overflow-y-auto">
+        {/* 상단: 다람쥐 + 문제 (글자 살짝 줄임) */}
+        <div className="flex items-center justify-center gap-4">
           <div className="flex-shrink-0">
             <div className={done ? 'animate-bounce-soft' : ''}>
               <Squirrel size={100} mood={done ? 'happy' : 'normal'} />
             </div>
           </div>
-          <div className="flex-1 max-w-4xl">
-            <h2 className="font-display text-amber-900 mb-2" style={{ fontSize: '2rem' }}>{emoji} 실생활 문제 ({idx}/4)</h2>
+          <div className="flex-1 max-w-5xl">
+            <h2 className="font-display text-amber-900 mb-2" style={{ fontSize: '2.1rem' }}>{emoji} 실생활 문제 ({idx}/4)</h2>
             <div className={`bg-${problemColor}-50 rounded-xl p-4 border-2 border-${problemColor}-300`}>
-              <p className="font-body text-stone-800" style={{ fontSize: '1.55rem', lineHeight: '2.2rem' }}>📌 {problem}</p>
+              <p className="font-body text-stone-800" style={{ fontSize: '2rem', lineHeight: '2.8rem', wordBreak: 'keep-all' }}>📌 {problem}</p>
             </div>
           </div>
         </div>
 
-        {/* 풀이 두 칸 */}
-        <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
-          <div className="bg-emerald-50 rounded-2xl p-5 border-2 border-emerald-300 flex flex-col">
-            <p className="font-display text-emerald-800 mb-4 text-center" style={{ fontSize: '1.7rem' }}>방법 ① {methodA.title}</p>
-            <div className="space-y-3 flex-1">{methodA.body}</div>
+        {/* 풀이 두 칸 — 1.5배 크게 + 위아래 가운데 배치 */}
+        <div className="grid grid-cols-2 gap-5 px-2">
+          <div className="bg-emerald-50 rounded-2xl p-6 border-2 border-emerald-300 flex flex-col">
+            <p className="font-display text-emerald-800 mb-4 text-center" style={{ fontSize: '2.4rem' }}>방법 ① {methodA.title}</p>
+            <div className="space-y-4 flex-1 font-large">{methodA.body}</div>
           </div>
-          <div className="bg-orange-50 rounded-2xl p-5 border-2 border-orange-300 flex flex-col">
-            <p className="font-display text-orange-800 mb-4 text-center" style={{ fontSize: '1.7rem' }}>방법 ② {methodB.title}</p>
-            <div className="space-y-3 flex-1">{methodB.body}</div>
+          <div className="bg-orange-50 rounded-2xl p-6 border-2 border-orange-300 flex flex-col">
+            <p className="font-display text-orange-800 mb-4 text-center" style={{ fontSize: '2.4rem' }}>방법 ② {methodB.title}</p>
+            <div className="space-y-4 flex-1 font-large">{methodB.body}</div>
           </div>
         </div>
 
         {done && (
-          <div className="bg-gradient-to-r from-emerald-100 via-amber-100 to-orange-100 rounded-xl p-3 border-2 border-emerald-400 mt-3 text-center animate-pop-in">
+          <div className="bg-gradient-to-r from-emerald-100 via-amber-100 to-orange-100 rounded-xl p-3 border-2 border-emerald-400 text-center animate-pop-in">
             <p className="font-display text-emerald-800" style={{ fontSize: '1.7rem' }}>🎉 두 방법 모두 정답이에요! 완벽해요! ✨</p>
           </div>
         )}
 
-        <div className="flex justify-between mt-3">
-          <Button onClick={() => setStep(prevStep)} variant="soft">← 이전</Button>
+        <div className="flex justify-end">
           {done ? (
             <Button onClick={() => setStep(nextStep)}>{nextLabel} <ArrowRight size={20} className="inline ml-1" /></Button>
           ) : (
@@ -2683,7 +3521,7 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
     methodA: {
       title: '분수로 풀기',
       body: <>
-        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>분모를 100으로 만들면 분자가 곧 %예요.</p>
+        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>분모를 100으로 만들면 분자가 곧 백분율이에요.</p>
         <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
           <Fraction num="20" den="25" color="#047857" size="1.7rem" />
           <span>=</span>
@@ -2716,19 +3554,19 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
   const renderRain = () => renderRealLife({
     pageKey: 'rain',
     idx: 3,
-    emoji: '☔',
+    emoji: '🥤',
     problemColor: 'sky',
-    problem: <>일기예보에서 비 올 확률이 <b>0.45</b>라고 해요. 백분율로 나타내면 몇 %일까요?</>,
+    problem: <>편의점에서 음료수 <b>1000원</b>짜리가 <b>0.2 만큼</b> 할인 중이에요. 할인 금액은 1000원의 몇 %일까요?</>,
     methodA: {
       title: '분수로 풀기',
       body: <>
-        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>소수 두 자리는 분모 100인 분수로 한 번에!</p>
+        <p className="font-body text-emerald-700 text-center" style={{ fontSize: '1.15rem' }}>소수 한 자리는 분모 10인 분수 → 분모 100으로!</p>
         <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
-          <span className="font-bold">0.45 =</span>
+          <span className="font-bold">0.2 =</span>
           {fracBlank('rainA1')}
         </div>
         <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
-          <span className="font-bold">→ 비 올 확률 =</span>
+          <span className="font-bold">→ 할인 비율 =</span>
           <Blank value={blank('rainA2')} onChange={setBlank('rainA2')} width="5rem" size="1.5rem" />
           <span className="font-bold">%</span>
         </div>
@@ -2739,7 +3577,7 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
       body: <>
         <p className="font-body text-orange-700 text-xs text-center">소수점이 두 자리 옮겨가요.</p>
         <div className="bg-white/70 rounded-lg p-2 flex items-center justify-center flex-wrap gap-x-2" style={{ fontSize: '1.6rem' }}>
-          <span className="font-bold">0.45 × 100 =</span>
+          <span className="font-bold">0.2 × 100 =</span>
           <Blank value={blank('rainB1')} onChange={setBlank('rainB1')} width="5rem" size="1.5rem" />
           <span className="font-bold">%</span>
         </div>
@@ -2848,17 +3686,17 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
     };
 
     return (
-      <div className="animate-fade-up h-full flex items-center justify-center px-16">
-        <Card className="w-full max-w-4xl">
+      <div className="animate-fade-up h-full flex items-center justify-center px-6 overflow-y-auto py-4">
+        <Card className="w-full max-w-6xl">
           <div className="flex justify-between items-center mb-5">
-            <span className="font-display text-amber-700 text-lg">문제 {qIndex + 1} / {selectedQuestions.length}</span>
+            <span className="font-display text-amber-700 text-2xl">문제 {qIndex + 1} / {selectedQuestions.length}</span>
             <div className="flex gap-1.5 flex-wrap max-w-xs justify-end">
               {[...Array(selectedQuestions.length)].map((_, i) => (
                 <div key={i} className={`w-4 h-4 rounded-full ${i < qIndex ? 'bg-emerald-400' : i === qIndex ? 'bg-orange-400' : 'bg-amber-200'}`} />
               ))}
             </div>
           </div>
-          <p className="font-body text-stone-800 text-2xl mb-5 leading-relaxed">{q.q}</p>
+          <p className="font-body text-stone-800 mb-3 leading-relaxed" style={{ fontSize: '2.5rem', lineHeight: '3.3rem', wordBreak: 'keep-all' }}>{q.q}</p>
           <div className="grid grid-cols-4 gap-3">
             {q.options.map((opt, i) => {
               const isPicked = feedback?.picked === i;
@@ -2871,7 +3709,8 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
               }
               return (
                 <button key={i} onClick={() => !feedback && handleAnswer(i)} disabled={!!feedback}
-                  className={`font-display text-2xl px-4 py-5 rounded-2xl border-2 border-b-4 transition-all ${style}`}>
+                  className={`font-display px-4 py-5 rounded-2xl border-2 border-b-4 transition-all flex items-center justify-center ${style}`}
+                  style={{ fontSize: '2.4rem' }}>
                   {opt}
                   {feedback && isPicked && (<span className="ml-2">{isCorrect ? '✓' : '✗'}</span>)}
                 </button>
@@ -2879,10 +3718,13 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
             })}
           </div>
           {feedback && feedback.correct && (
-            <div className="mt-5 p-4 rounded-2xl text-center font-body text-lg animate-pop-in bg-emerald-100 text-emerald-900">
+            <div className="mt-3 p-3 rounded-2xl text-center font-body text-lg animate-pop-in bg-emerald-100 text-emerald-900">
               🎉 정답이에요!
             </div>
           )}
+          <div className="mt-4">
+            <ScratchPad key={'s3-q-' + qIndex} height={140} />
+          </div>
         </Card>
       </div>
     );
@@ -3006,6 +3848,46 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
           </div>
         </div>
       )}
+      {showMethodsCompare && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+          <div className="bg-purple-50 rounded-3xl p-7 max-w-3xl w-full card-shadow border-4 border-purple-400 animate-pop-in">
+            <h3 className="font-display text-purple-800 text-center mb-4" style={{ fontSize: '2rem' }}>📊 두 방법 비교</h3>
+            <div className="space-y-3">
+              <div className="bg-white rounded-2xl p-4 border-2 border-emerald-300">
+                <p className="font-display text-emerald-800 mb-2" style={{ fontSize: '1.4rem' }}>① 분모를 100으로 바꾸기</p>
+                <p className="font-body text-stone-700" style={{ fontSize: '1.25rem', lineHeight: '1.85rem' }}>
+                  분수의 <b>분모를 100으로</b> 바꾸면, <b className="text-orange-700">분자가 곧 백분율</b>이에요.
+                </p>
+                <div className="flex items-center justify-center gap-2 mt-2" style={{ fontSize: '1.5rem' }}>
+                  <Fraction num="14" den="25" color="#047857" size="1.5rem" />
+                  <span>=</span>
+                  <Fraction num="56" den="100" color="#047857" size="1.5rem" />
+                  <span>➡</span>
+                  <b className="text-orange-700" style={{ fontSize: '1.9rem' }}>56%</b>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-4 border-2 border-orange-300">
+                <p className="font-display text-orange-800 mb-2" style={{ fontSize: '1.4rem' }}>② 비율 × 100</p>
+                <p className="font-body text-stone-700" style={{ fontSize: '1.25rem', lineHeight: '1.85rem' }}>
+                  비율(분수/소수)에 <b className="text-orange-700">100을 곱하면</b> 바로 백분율이에요.
+                </p>
+                <div className="flex items-center justify-center gap-2 mt-2" style={{ fontSize: '1.5rem' }}>
+                  <Fraction num="14" den="25" color="#C2410C" size="1.5rem" />
+                  <span>× 100 = 56</span>
+                  <span>➡</span>
+                  <b className="text-orange-700" style={{ fontSize: '1.9rem' }}>56%</b>
+                </div>
+              </div>
+              <p className="font-body text-stone-700 text-center bg-amber-100 rounded-xl p-3 border-2 border-amber-300" style={{ fontSize: '1.2rem' }}>
+                💡 두 방법 모두 답은 같아요! 상황에 따라 편한 방법을 골라 써요.
+              </p>
+            </div>
+            <div className="text-center mt-4">
+              <Button onClick={() => setShowMethodsCompare(false)}>알겠어요!</Button>
+            </div>
+          </div>
+        </div>
+      )}
       {showCompletion && (() => {
         const allDone = progress && (progress.s1 || 0) > 0 && (progress.s2 || 0) > 0 && (progress.s3 || 0) > 0;
         return (
@@ -3037,7 +3919,7 @@ const Stage3 = ({ onHome, onComplete, onCorrect, rewards, progress, onDownloadNo
       })()}
       <TopBar
         onHome={onHome}
-        onBack={!showOverview ? goOverview : null}
+        onBack={!showOverview ? goBack : null}
         title="💯 백분율 마을"
         progress={showOverview ? '목차' : `${Math.min(step + 1, 9)}/9`}
       />
